@@ -4,6 +4,10 @@
 
 本项目面向 Audi **MHI2Q** 平台，用于将 **CarPlay 原生 AltScreen / 第二屏导航画面**直接显示至车辆的 **Virtual Cockpit**。核心显示链路已完成实车验证。操作前请先阅读 [SD 卡说明](SD_CARD_README.txt)。
 
+
+**目前已降低水印透明度，预计十月中旬完全去除运行水印。** 
+
+
 > [!NOTE]
 > **姊妹项目：MMI Mirror**  
 > 如果你希望显示的是 **MMI 中控完整画面镜像**，而不是 CarPlay 原生第二屏，请前往：  
