@@ -4,6 +4,10 @@
 
 This project is designed for the Audi **MHI2Q** platform and displays the **native CarPlay AltScreen / secondary navigation view** directly on the vehicle's **Virtual Cockpit**. The core display path has been verified in a vehicle. Read the [SD card instructions](SD_CARD_README.txt) before making changes to the head unit.
 
+
+**The watermark opacity has now been reduced, and the runtime watermark is expected to be removed entirely around mid-October.**
+
+
 > [!NOTE]
 > **Sister project: MMI Mirror**  
 > If you want to mirror the **entire MMI center display** instead of using the native CarPlay secondary display, see:  
