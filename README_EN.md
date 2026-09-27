@@ -175,7 +175,7 @@ See the [SD card instructions](SD_CARD_README.txt) for additional runtime notes.
 
 This project is developed by [yuedizhibo](https://github.com/yuedizhibo) and [Lanye-z](https://github.com/Lanye-z). The repository-root [PolyForm Noncommercial 1.0.0 license](LICENSE) applies only to original material that the relevant rights holders are entitled to publish under those terms: non-commercial use, modification, and redistribution are permitted, while commercial use requires separate permission from the relevant rights holders. This repository provides runtime binaries, installation scripts, and documentation; it does not publish the C/C++ source used to build the QNX binary. Because commercial use is restricted, the license is not open source under the OSI definition.
 
-The runtime watermark pixels come from [Lanye-z’s MMI Mirror project](https://github.com/Lanye-z/MHI2Q-CarPlay-MMI-Mirror), retaining the original 196×32 dimensions and approximately 60% maximum opacity. Third-party files retain their existing licenses. Preserve the upstream MIB2 Toolbox [MIT license](LICENSE.TOOLBOX-MIT) and the mirror runtime's [separate license](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR).
+The runtime watermark pixels come from [Lanye-z’s MMI Mirror project](https://github.com/Lanye-z/MHI2Q-CarPlay-MMI-Mirror), retaining the original 196×32 dimensions, with the current maximum opacity reduced to approximately 10%. Third-party files retain their existing licenses. Preserve the upstream MIB2 Toolbox [MIT license](LICENSE.TOOLBOX-MIT) and the mirror runtime's [separate license](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR).
 
 Research and implementation references:
 
