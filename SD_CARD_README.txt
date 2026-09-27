@@ -13,7 +13,8 @@ MMI Cockpit CarPlay 第二屏覆盖包（AUG22 / V2.1）
 5. 断开 iPhone → INSTALL → 完整重启 → START → 完整重启 → 连接 CarPlay → 开导航。
    仅支持安装脚本可核验的 AUG22 固件。
 6. 收到有效第二屏视频后，开屏 Logo 以原大小的 80% 居中显示约 2 秒；
-   运行时显示参考项目原始“免费开源，禁止倒卖”动态水印。两张图均内嵌在运行二进制中。
+   运行时显示参考项目原始“免费开源，禁止倒卖”动态水印，最高不透明度 10%。
+   两张图均内嵌在运行二进制中。
 7. 恢复使用 RESTORE ORIGINAL；恢复时插入保留原车备份的 SD 卡。
 本包只包含本项目的覆盖文件，不附带上游完整 MIB2 Toolbox。
 
@@ -39,8 +40,9 @@ MMI Cockpit CarPlay AltScreen overlay (AUG22 / V2.1)
    installation scripts is supported.
 6. On valid secondary-display video, the startup logo appears centered at 80% of
    its former size for about two seconds. The runtime uses the reference project's
-   original animated 'Free and open source, resale prohibited' watermark. Both
-   images are embedded in the runtime binary; no separate image files are shipped.
+   original animated 'Free and open source, resale prohibited' watermark at 10%
+   maximum opacity. Both images are embedded in the runtime binary; no separate
+   image files are shipped.
 7. Use RESTORE ORIGINAL to restore the stock configuration. Insert the SD card
    containing the original stock backup before restoring.
 This package contains only this project's overlay, not the full upstream Toolbox.
