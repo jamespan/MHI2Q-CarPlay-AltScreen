@@ -175,7 +175,7 @@ Script not found:
 
 本项目由 [yuedizhibo](https://github.com/yuedizhibo) 和 [Lanye-z](https://github.com/Lanye-z) 共同开发。仓库根目录的 [PolyForm Noncommercial 1.0.0 许可](LICENSE)仅适用于相应权利人有权按该许可发布的原创部分：允许非商业使用、修改和分发；商业使用须另行取得相关权利人的许可。本仓库提供运行二进制、安装脚本和说明，未提供构建该 QNX 二进制的 C/C++ 源码；由于限制商用，该许可不属于 OSI 定义的开源许可。
 
-运行时水印像素取自 [Lanye-z 的 MMI Mirror 项目](https://github.com/Lanye-z/MHI2Q-CarPlay-MMI-Mirror)，保留原始 196×32 尺寸和最高约 60% 的不透明度。仓库中包含第三方文件，其原有授权不因仓库根目录的许可而改变。上游 MIB2 Toolbox 的 [MIT 许可](LICENSE.TOOLBOX-MIT)和镜像运行组件的[独立许可](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR)均须保留；使用或再分发时应分别遵守其条款。
+运行时水印像素取自 [Lanye-z 的 MMI Mirror 项目](https://github.com/Lanye-z/MHI2Q-CarPlay-MMI-Mirror)，保留原始 196×32 尺寸，当前最高不透明度约为 10%。仓库中包含第三方文件，其原有授权不因仓库根目录的许可而改变。上游 MIB2 Toolbox 的 [MIT 许可](LICENSE.TOOLBOX-MIT)和镜像运行组件的[独立许可](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR)均须保留；使用或再分发时应分别遵守其条款。
 
 研究与实现参考项目：
 
