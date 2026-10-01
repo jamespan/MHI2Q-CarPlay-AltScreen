@@ -5,7 +5,7 @@
 This project is designed for the Audi **MHI2Q** platform and displays the **native CarPlay AltScreen / secondary navigation view** directly on the vehicle's **Virtual Cockpit**. The core display path has been verified in a vehicle. Read the [SD card instructions](SD_CARD_README.txt) before making changes to the head unit.
 
 
-**The watermark opacity has now been reduced, and the runtime watermark is expected to be removed entirely around mid-October.**
+**October 1 update: Classic / Sport dynamic layout adaptation has been added. This build is expected to remove the runtime watermark around mid-October.**
 
 
 > [!NOTE]
@@ -53,18 +53,17 @@ This project is designed for the Audi **MHI2Q** platform and displays the **nati
 - Restoration of stock configuration
 - Logs and SD-card backups
 - Core display path vehicle-validated on **China-region AUG22 firmware**
+- Classic / Sport dynamic layout adaptation
 
 ## Not yet included in the current public release
 
 - Steering-wheel control for CarPlay map zoom
 - More complete RGI navigation-data integration
-- Dynamic Classic / Sport layout adaptation
+- Vehicle-marker centering across the full navigation view *(this update is being held back for now because some commercial solutions still have not solved the issue)*
 
 These features will be added gradually to later public releases according to stability, compatibility, and cleanup progress. **Adaptation for the MHI2 platform and for US / ER or other regional firmware variants is currently outside the scope of this project.**
 
 ### Planned for future releases:
-
-https://github.com/user-attachments/assets/b6506445-d6a5-4765-9d4f-db64be53ae44
 
 https://github.com/user-attachments/assets/53cfcd21-63ea-4e7b-a1f7-68f02353de05
 
