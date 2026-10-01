@@ -4,9 +4,7 @@
 
 本项目面向 Audi **MHI2Q** 平台，用于将 **CarPlay 原生 AltScreen / 第二屏导航画面**直接显示至车辆的 **Virtual Cockpit**。核心显示链路已完成实车验证。操作前请先阅读 [SD 卡说明](SD_CARD_README.txt)。
 
-
-**目前已降低水印透明度，预计十月中旬完全去除运行水印。** 
-
+**10月1日更新Classic / Sport动态布局适配，该版本预计十月中旬去除运行水印。** 
 
 > [!NOTE]
 > **姊妹项目：MMI Mirror**  
@@ -53,18 +51,17 @@
 - 原车配置恢复
 - 日志与 SD 卡备份
 - 核心显示链路已在 **中国区 AUG22 固件**完成实车验证
+- Classic / Sport 动态布局适配
 
 ## 暂未包含在当前公开版本
-
 - 方向盘滚轮控制 CarPlay 地图缩放
 - 更完整的 RGI 导航信息联动
-- Classic / Sport 动态布局适配
+- 导航时车标全域居中（考虑到部分出售方案暂时并未解决该问题，故暂缓更新）
+
 
 上述功能会根据稳定性、兼容性和整理进度，逐步更新到后续公开版本。**MHI2 平台以及 US / ER 等其他地区固件的适配目前不在本项目计划内。**
 
 ### 未来将引入：
-
-https://github.com/user-attachments/assets/b6506445-d6a5-4765-9d4f-db64be53ae44
 
 https://github.com/user-attachments/assets/53cfcd21-63ea-4e7b-a1f7-68f02353de05
 
