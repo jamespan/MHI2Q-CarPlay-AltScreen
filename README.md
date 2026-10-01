@@ -1,4 +1,4 @@
-# MIB2 Toolbox — CarPlay AltScreen V2.1
+# MIB2 Toolbox — CarPlay AltScreen V2.2
 
 [English](README_EN.md) | **简体中文**
 
