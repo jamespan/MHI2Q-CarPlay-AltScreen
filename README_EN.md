@@ -57,9 +57,7 @@ This project is designed for the Audi **MHI2Q** platform and displays the **nati
 
 ## Not yet included in the current public release
 
-- Steering-wheel control for CarPlay map zoom
 - More complete RGI navigation-data integration
-- Vehicle-marker centering across the full navigation view *(this update is being held back for now because some commercial solutions still have not solved the issue)*
 
 These features will be added gradually to later public releases according to stability, compatibility, and cleanup progress. **Adaptation for the MHI2 platform and for US / ER or other regional firmware variants is currently outside the scope of this project.**
 
