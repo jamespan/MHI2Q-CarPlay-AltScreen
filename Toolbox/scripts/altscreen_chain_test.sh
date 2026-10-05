@@ -51,30 +51,10 @@ if [ "$TESTING" = 1 ]; then
     case "$FIXED_ROOT" in /tmp/*|/var/tmp/*) ;; *) fail "invalid ALTSCREEN_CHAIN_ROOT" ;; esac
     case "$VOLUME" in /tmp/*|/var/tmp/*) ;; *) fail "invalid ALTSCREEN_CHAIN_VOLUME" ;; esac
 else
-    action=${1:-}
-    VOLUME=${ALTSCREEN_SD_VOLUME:-}
-    if [ -n "$VOLUME" ]; then
-        [ -f "$VOLUME/Toolbox/scripts/altscreen_chain_test_universal.sh" ] || fail "selected SD card has no AltScreen controller"
-    fi
-    case "$action:$VOLUME" in
-      restore:|start:|status:|collect:|disarm:)
-        for candidate in /net/mmx/fs/sda0 /net/mmx/fs/sda1 /net/mmx/fs/sdb0 /net/mmx/fs/sdb1 /fs/sda0 /fs/sda1 /fs/sdb0 /fs/sdb1; do
-            if [ -f "$candidate/MMI-Cockpit-Carplay/state/firmware_profile.txt" ] &&
-               [ -f "$candidate/Toolbox/scripts/altscreen_chain_test_universal.sh" ]; then
-                VOLUME=$candidate; break
-            fi
-        done
-        ;;
-    esac
-    if [ -z "$VOLUME" ]; then
-        for candidate in /net/mmx/fs/sda0 /net/mmx/fs/sda1 /net/mmx/fs/sdb0 /net/mmx/fs/sdb1 /fs/sda0 /fs/sda1 /fs/sdb0 /fs/sdb1; do
-            if [ -f "$candidate/Toolbox/scripts/altscreen_chain_test_universal.sh" ] &&
-               [ -s "$candidate/Toolbox/carplay_alt_screen/universal/libcarplay_altscreen.so" ]; then
-                VOLUME=$candidate; break
-            fi
-        done
-    fi
-    [ -n "$VOLUME" ] || fail "no matching AltScreen SD card discovered"
+    for candidate in /net/mmx/fs/sda0 /net/mmx/fs/sda1 /net/mmx/fs/sdb0 /net/mmx/fs/sdb1 /fs/sda0 /fs/sda1 /fs/sdb0 /fs/sdb1; do
+        if [ -d "$candidate/Toolbox" ]; then VOLUME=$candidate; break; fi
+    done
+    [ -n "$VOLUME" ] || fail "no Toolbox SD card discovered"
 fi
 
 SD_ROOT="$VOLUME/MMI-Cockpit-Carplay"
@@ -97,48 +77,19 @@ LIVE_LIBAIRPLAY="/eso/lib/libairplay.so"
 
 RUNTIME_ROOT="$(p /mnt/app/root/carplay-altscreen)"
 RUNTIME_BIN="$RUNTIME_ROOT/bin"
-RUNTIME_STAGE="$(p /mnt/app/root/.carplay-altscreen.new.$$)"
+RUNTIME_STAGE="$(p /mnt/app/root/.carplay-altscreen.new)"
+RUNTIME_STAGE_PARENT="$(p /mnt/app/root)"
 RUNTIME_PREV="$(p /mnt/app/root/.carplay-altscreen.previous)"
+ROUTER_TMP="$(p /tmp/altscreen_router_child_install.$$)"
+RESTORE_TXN_DIR="$SD_ROOT/restore-transaction/active"
+INSTALL_TXN_DIR="$SD_ROOT/install-transaction/active"
 RUNTIME_OWNER=.mmi-cockpit-carplay-runtime-owner
-RUNTIME_PENDING="$RUNTIME_ROOT/state/transaction.pending"
 RUNTIME_PUBLISHED=0
 RUNTIME_HAD_CURRENT=0
-RUNTIME_SCRIPTS="altscreen_chain_test.sh altscreen_chain_test_known.sh altscreen_chain_test_universal.sh altscreen_persistent_diag.sh altscreen_adaptive_diag.sh altscreen_boot_diag.sh altscreen_live_diag.sh altscreen_preload.awk install_mmi_cockpit_carplay_rx.sh start_mmi_cockpit_carplay_test.sh start_mmi_cockpit_carplay_rx_test.sh force_start_mmi_cockpit_carplay_rx_test.sh stop_mmi_cockpit_carplay_test.sh status_mmi_cockpit_carplay_test.sh finish_mmi_cockpit_carplay_test.sh"
+RUNTIME_SCRIPTS="altscreen_chain_test.sh altscreen_chain_test_known.sh altscreen_chain_test_universal.sh altscreen_sd_writable.sh altscreen_install_transaction.sh altscreen_restore_transaction.sh altscreen_restore_apply.sh altscreen_persistent_diag.sh altscreen_adaptive_diag.sh altscreen_boot_diag.sh altscreen_live_diag.sh altscreen_preload.awk install_mmi_cockpit_carplay_rx.sh start_mmi_cockpit_carplay_test.sh start_mmi_cockpit_carplay_rx_test.sh force_start_mmi_cockpit_carplay_rx_test.sh stop_mmi_cockpit_carplay_test.sh status_mmi_cockpit_carplay_test.sh finish_mmi_cockpit_carplay_test.sh"
 
 mount_app_rw(){ [ "$TESTING" = 1 ] || mount -uw /mnt/app; }
 mount_app_ro(){ [ "$TESTING" = 1 ] || mount -ur /mnt/app; }
-
-mark_runtime_pending(){
-    [ -d "$RUNTIME_ROOT" ] || return 0
-    [ -f "$RUNTIME_ROOT/$RUNTIME_OWNER" ] || return 1
-    mount_app_rw || return 1
-    ensure_dirs "$RUNTIME_ROOT/state" && touch "$RUNTIME_PENDING" || {
-        mount_app_ro >/dev/null 2>&1 || true
-        return 1
-    }
-    sync >/dev/null 2>&1 || true
-    mount_app_ro
-}
-
-clear_runtime_pending(){
-    [ -f "$RUNTIME_ROOT/$RUNTIME_OWNER" ] || return 1
-    mount_app_rw || return 1
-    rm -f "$RUNTIME_PENDING" || { mount_app_ro >/dev/null 2>&1 || true; return 1; }
-    sync >/dev/null 2>&1 || true
-    mount_app_ro
-}
-
-cleanup_stale_runtime_stages(){
-    parent="$(p /mnt/app/root)"
-    for stale in "$parent"/.carplay-altscreen.new.*; do
-        [ -e "$stale" ] || [ -L "$stale" ] || continue
-        suffix=${stale##*.}
-        case "$suffix" in ''|*[!0-9]*) continue ;; esac
-        kill -0 "$suffix" 2>/dev/null && continue
-        [ -d "$stale" ] && [ ! -L "$stale" ] || return 1
-        rm -rf "$stale" || return 1
-    done
-}
 
 locate_first(){
     for cand in $1; do [ -e "$(p "$cand")" ] && { echo "$cand"; return 0; }; done
@@ -217,26 +168,30 @@ validate_runtime_sources(){
         [ -s "$src" ] || { echo "FAIL: runtime companion missing/empty: $src" >&2; return 1; }
         case "$name" in *.sh) sh -n "$src" || { echo "FAIL: runtime companion shell syntax: $name" >&2; return 1; } ;; esac
     done
-    for name in carplay-alt111-mirror-display start_vehicle.sh stop_vehicle.sh BUILD_INFO.txt; do
+    for name in carplay-alt111-mirror-display start_vehicle.sh stop_vehicle.sh stream_supervisor.sh BUILD_INFO.txt; do
         [ -s "$MIRROR_SD/$name" ] || { echo "FAIL: integrated direct-display sidecar missing/empty: $MIRROR_SD/$name" >&2; return 1; }
     done
-    grep -Fq 'release_binary_status=PRIVATE111_DIRECT_DISPLAY_V2' "$MIRROR_SD/BUILD_INFO.txt" 2>/dev/null &&
+    grep -Fq 'release_binary_status=PRIVATE111_DIRECT_DISPLAY_V3_5' "$MIRROR_SD/BUILD_INFO.txt" 2>/dev/null &&
     grep -Fq 'vehicle_zip_status=READY_FOR_VEHICLE_TEST' "$MIRROR_SD/BUILD_INFO.txt" 2>/dev/null || {
-        echo "FAIL: direct-display release is not vehicle-ready V2; rebuild/promote QNX sidecar first" >&2
+        echo "FAIL: direct-display release is not vehicle-ready V3.5; rebuild/promote runtime first" >&2
         return 1
     }
     sh -n "$MIRROR_SD/start_vehicle.sh" || return 1
     sh -n "$MIRROR_SD/stop_vehicle.sh" || return 1
+    sh -n "$MIRROR_SD/stream_supervisor.sh" || return 1
     return 0
 }
 
 precheck_app_runtime(){
     parent="$(p /mnt/app/root)"
-    probe="$parent/.altscreen-write-test.$$"
-    token="altscreen-write-test-$$"
+    probe="$parent/.altscreen-write-test"
+    token="altscreen-write-test-$"
     mount_app_rw || { echo "FAIL: cannot mount /mnt/app writable" >&2; return 1; }
     ok=1
     ensure_dirs "$parent" || ok=0
+    # The probe uses one fixed project-owned path so an interrupted precheck can
+    # never accumulate PID-suffixed files on persistent /mnt/app.
+    rm -f "$probe" 2>/dev/null || true
     if [ "$ok" = 1 ]; then printf '%s\n' "$token" > "$probe" 2>/dev/null || ok=0; fi
     if [ "$ok" = 1 ]; then [ "$(cat "$probe" 2>/dev/null)" = "$token" ] || ok=0; fi
     rm -f "$probe" 2>/dev/null || true
@@ -261,33 +216,15 @@ install_runtime_scripts(){
         return 1
     }
     mount_app_rw || return 1
-    cleanup_stale_runtime_stages || { mount_app_ro >/dev/null 2>&1 || true; return 1; }
-    # Recover a directory exchange interrupted before the prior INSTALL could
-    # commit. Both directories are owned, and the published one is still inert
-    # under transaction.pending. Preserve the previous runtime for this retry.
-    if [ -d "$RUNTIME_PREV" ]; then
-        if [ -d "$RUNTIME_ROOT" ]; then
-            [ -f "$RUNTIME_PENDING" ] || { mount_app_ro >/dev/null 2>&1 || true; return 1; }
-            rm -rf "$RUNTIME_ROOT" || { mount_app_ro >/dev/null 2>&1 || true; return 1; }
-        fi
-        mv "$RUNTIME_PREV" "$RUNTIME_ROOT" || { mount_app_ro >/dev/null 2>&1 || true; return 1; }
-    fi
+    # New packages use one fixed project-owned staging directory. Also reap
+    # legacy PID-suffixed staging left by an interrupted older installer.
     rm -rf "$RUNTIME_STAGE" 2>/dev/null || true
+    for stale in "$RUNTIME_STAGE_PARENT"/.carplay-altscreen.new.*; do
+        [ -e "$stale" ] || continue
+        rm -rf "$stale" 2>/dev/null || { mount_app_ro >/dev/null 2>&1 || true; return 1; }
+    done
     ensure_dirs "$RUNTIME_STAGE/bin" "$RUNTIME_STAGE/lib" "$RUNTIME_STAGE/state" || { mount_app_ro >/dev/null 2>&1 || true; return 1; }
-    # Preserve the fixed runtime slots across an update. Never copy arbitrary
-    # old files or per-session directories into the new owned runtime.
-    if [ -d "$RUNTIME_ROOT/state" ]; then
-        for leaf in diagnostics.enabled ARMED ARMED_MUTATE \
-                    ARMED_INFO ARMED_FEATURE ARMED_CREATE111 ACTIVE FORCE_START \
-                    IAP2_PROFILE run_id fullchain_probe transaction.pending; do
-            [ -f "$RUNTIME_ROOT/state/$leaf" ] || continue
-            cp "$RUNTIME_ROOT/state/$leaf" "$RUNTIME_STAGE/state/$leaf" || {
-                rm -rf "$RUNTIME_STAGE" 2>/dev/null || true
-                mount_app_ro >/dev/null 2>&1 || true
-                return 1
-            }
-        done
-    fi
+    echo "RUNTIME_STAGING_POLICY=BOUNDED path=/mnt/app/root/.carplay-altscreen.new legacy_pid_staging=reaped"
     for name in $RUNTIME_SCRIPTS; do
         src="$SD_SCRIPTS/$name"; dst="$RUNTIME_STAGE/bin/$name"
         cp "$src" "$dst" && cmp -s "$src" "$dst" || {
@@ -302,7 +239,7 @@ install_runtime_scripts(){
         }
     done
     ensure_dirs "$RUNTIME_STAGE/bin/mirror" || { rm -rf "$RUNTIME_STAGE" 2>/dev/null || true; mount_app_ro >/dev/null 2>&1 || true; return 1; }
-    for name in carplay-alt111-mirror-display start_vehicle.sh stop_vehicle.sh BUILD_INFO.txt LICENSE.MMI-MIRROR SHA256SUMS; do
+    for name in carplay-alt111-mirror-display start_vehicle.sh stop_vehicle.sh stream_supervisor.sh BUILD_INFO.txt LICENSE.MMI-MIRROR SHA256SUMS; do
         [ -f "$MIRROR_SD/$name" ] || continue
         cp "$MIRROR_SD/$name" "$RUNTIME_STAGE/bin/mirror/$name" || {
             rm -rf "$RUNTIME_STAGE" 2>/dev/null || true
@@ -310,30 +247,20 @@ install_runtime_scripts(){
             return 1
         }
     done
-    chmod 755 "$RUNTIME_STAGE/bin/mirror/carplay-alt111-mirror-display"               "$RUNTIME_STAGE/bin/mirror/start_vehicle.sh"               "$RUNTIME_STAGE/bin/mirror/stop_vehicle.sh" || {
+    chmod 755 "$RUNTIME_STAGE/bin/mirror/carplay-alt111-mirror-display"               "$RUNTIME_STAGE/bin/mirror/start_vehicle.sh"               "$RUNTIME_STAGE/bin/mirror/stop_vehicle.sh"               "$RUNTIME_STAGE/bin/mirror/stream_supervisor.sh" || {
         rm -rf "$RUNTIME_STAGE" 2>/dev/null || true
         mount_app_ro >/dev/null 2>&1 || true
         return 1
     }
-    printf '%s\n' 'owner=MMI-Cockpit-Carplay' 'mode=carplay-private111-direct-display-v2' > "$RUNTIME_STAGE/bin/mirror/$MIRROR_OWNER" || return 1
+    printf '%s\n' 'owner=MMI-Cockpit-Carplay' 'mode=carplay-private111-direct-display-v3.5' > "$RUNTIME_STAGE/bin/mirror/$MIRROR_OWNER" || return 1
     printf '%s\n' 'owner=MMI-Cockpit-Carplay' 'runtime=carplay-altscreen' > "$RUNTIME_STAGE/$RUNTIME_OWNER" || {
         rm -rf "$RUNTIME_STAGE" 2>/dev/null || true
         mount_app_ro >/dev/null 2>&1 || true
         return 1
     }
-    touch "$RUNTIME_STAGE/state/transaction.pending" || {
-        rm -rf "$RUNTIME_STAGE" 2>/dev/null || true
-        mount_app_ro >/dev/null 2>&1 || true
-        return 1
-    }
-    # The complete previous runtime is held in RUNTIME_PREV until INSTALL commits.
-    # No second copy is needed inside the newly published runtime.
-    if [ -d "$RUNTIME_ROOT/bin/mirror" ] && [ ! -f "$RUNTIME_ROOT/bin/mirror/$MIRROR_OWNER" ]; then
-        rm -rf "$RUNTIME_STAGE" 2>/dev/null || true
-        mount_app_ro >/dev/null 2>&1 || true
-        echo "FAIL: current unified Mirror runtime is unowned" >&2
-        return 1
-    fi
+    # The full owned runtime is moved to one fixed same-filesystem rollback
+    # slot below. Do not duplicate Mirror or any other previous-version payload
+    # inside the new runtime; original/OEM backups live on the SD card.
     if [ -d "$RUNTIME_PREV" ]; then rm -rf "$RUNTIME_PREV" || {
         rm -rf "$RUNTIME_STAGE" 2>/dev/null || true
         mount_app_ro >/dev/null 2>&1 || true
@@ -359,102 +286,200 @@ install_runtime_scripts(){
     return 0
 }
 
+commit_runtime_scripts(){
+    # RUNTIME_PREV is a same-INSTALL rollback slot, not a persistent backup.
+    # Once router INSTALL has fully succeeded it must not remain on /mnt/app.
+    if [ "$RUNTIME_HAD_CURRENT" = 1 ] && [ -d "$RUNTIME_PREV" ]; then
+        [ -f "$RUNTIME_PREV/$RUNTIME_OWNER" ] || {
+            echo "WARN: refusing to clean unowned runtime rollback slot" >&2
+            return 1
+        }
+        mount_app_rw >/dev/null 2>&1 || return 1
+        rm -rf "$RUNTIME_PREV" || { mount_app_ro >/dev/null 2>&1 || true; return 1; }
+        sync >/dev/null 2>&1 || true
+        mount_app_ro >/dev/null 2>&1 || return 1
+        echo "RUNTIME_ROLLBACK_SLOT_CLEANED=PASS path=/mnt/app/root/.carplay-altscreen.previous"
+    fi
+    RUNTIME_PUBLISHED=0
+    RUNTIME_HAD_CURRENT=0
+    return 0
+}
+
 rollback_runtime_scripts(){
     mount_app_rw >/dev/null 2>&1 || return 1
-    rc=0
     if [ "$RUNTIME_PUBLISHED" = 1 ]; then
-        if [ -d "$RUNTIME_ROOT" ] && [ -f "$RUNTIME_ROOT/$RUNTIME_OWNER" ]; then rm -rf "$RUNTIME_ROOT" || rc=1; fi
+        if [ -d "$RUNTIME_ROOT" ] && [ -f "$RUNTIME_ROOT/$RUNTIME_OWNER" ]; then rm -rf "$RUNTIME_ROOT" || true; fi
         if [ "$RUNTIME_HAD_CURRENT" = 1 ] && [ -d "$RUNTIME_PREV" ] && [ -f "$RUNTIME_PREV/$RUNTIME_OWNER" ]; then
-            [ "$rc" != 0 ] || mv "$RUNTIME_PREV" "$RUNTIME_ROOT" >/dev/null 2>&1 || rc=1
+            mv "$RUNTIME_PREV" "$RUNTIME_ROOT" >/dev/null 2>&1 || true
         fi
     fi
-    rm -rf "$RUNTIME_STAGE" 2>/dev/null || rc=1
+    rm -rf "$RUNTIME_STAGE" 2>/dev/null || true
     sync >/dev/null 2>&1 || true
-    mount_app_ro >/dev/null 2>&1 || rc=1
-    [ "$rc" = 0 ] || return 1
+    mount_app_ro >/dev/null 2>&1 || true
     RUNTIME_PUBLISHED=0
     RUNTIME_HAD_CURRENT=0
     return 0
 }
 
 cleanup_volatile_runtime(){
-    volatile_root="$(p /tmp/MMI-Cockpit-Carplay)"
-    if [ -e "$volatile_root" ]; then
-        rm -rf "$volatile_root" 2>/dev/null || {
-            echo "WARN: project volatile namespace could not be fully removed: /tmp/MMI-Cockpit-Carplay" >&2
-            return 1
-        }
-    fi
     tmp_root="$(p /tmp)"
-    for path in "$tmp_root"/MMI-Cockpit-Carplay.mirror.* \
-                "$tmp_root"/MMI-Cockpit-Carplay.diag.* \
-                "$tmp_root"/MMI-Cockpit-Carplay.startup.* \
-                "$tmp_root"/MMI-Cockpit-Carplay.lock.boot_token* \
-                "$tmp_root"/MMI-Cockpit-Carplay.boot_entry.log \
-                "$tmp_root"/MMI-Cockpit-Carplay.altscreen_hook.log \
-                "$tmp_root"/altscreen_hook.log \
-                "$tmp_root"/altscreen_diag_* \
-                "$tmp_root"/mmi-mirror-active \
-                "$tmp_root"/mmi-mirror-basevideo.ready \
-                "$tmp_root"/mmi-mirror-controller.started \
-                "$tmp_root"/mmi-mirror-controller.log \
-                "$tmp_root"/mmi-mirror-context.mode \
-                "$tmp_root"/mmi-mirror-hmi.state \
-                "$tmp_root"/mmi-mirror-hmi.state.tmp \
-                "$tmp_root"/carplay111_linear_*_*.nv12 \
-                "$tmp_root"/carplay111_consumer_*_*.nv12 \
-                "$tmp_root"/carplay_alt111_pf_*_*.conf; do
-        [ ! -e "$path" ] || rm -f "$path" || {
-            echo "WARN: project volatile file could not be removed: $path" >&2
-            return 1
-        }
-    done
-    echo "VOLATILE_RUNTIME_CLEANUP=PASS path=/tmp project_files_and_legacy_directory"
+    rm -f "$tmp_root"/altscreen_start_* "$tmp_root"/altscreen_router_child_install.* \
+          "$(p /tmp/altscreen_hook.log)" "$(p /tmp/altscreen_boot_entry.log)" \
+          "$(p /tmp/altscreen_boot_token)" "$(p /tmp/altscreen_autostart.log)" \
+          "$(p /tmp/altscreen_mirror.pid)" "$(p /tmp/altscreen_mirror.lifecycle.pid)" \
+          "$(p /tmp/altscreen_mirror.stop.requested)" "$(p /tmp/altscreen_mirror.log)" \
+          "$(p /tmp/altscreen_mirror.autorestart.log)" "$(p /tmp/altscreen_mirror.ready)" \
+          "$(p /tmp/altscreen_mirror.phone111.gate)" \
+          "$(p /tmp/altscreen-private111.stream-ready)" "$(p /tmp/altscreen-private111.stream-ready.new)" \
+          "$(p /tmp/altscreen_stream_supervisor.pid)" "$(p /tmp/altscreen_stream_supervisor.active)" \
+          "$(p /tmp/altscreen_stream_supervisor.log)" \
+          "$(p /tmp/mmi-mirror-active)" "$(p /tmp/mmi-mirror-basevideo.ready)" \
+          "$(p /tmp/mmi-mirror-controller.started)" 2>/dev/null || true
+    rmdir "$(p /tmp/altscreen_mirror.recovery.lock)" 2>/dev/null || true
+
+    # Backward-compatible cleanup only: older 2026-09-21 builds may have left
+    # this namespace behind. New code never creates or writes into it.
+    legacy_root="$(p /tmp/MMI-Cockpit-Carplay)"
+    [ ! -e "$legacy_root" ] || rm -rf "$legacy_root" 2>/dev/null || true
+    echo "VOLATILE_RUNTIME_CLEANUP=PASS policy=flat_tmp legacy_namespace=purged"
     return 0
 }
 
-commit_runtime_scripts(){
-    [ ! -e "$RUNTIME_PREV" ] || [ -f "$RUNTIME_PREV/$RUNTIME_OWNER" ] || {
-        echo "FAIL: refusing to remove unowned previous runtime" >&2
+runtime_owned_by_project(){
+    root=$1
+    [ -d "$root" ] || return 1
+    [ ! -L "$root" ] || return 1
+    marker="$root/$RUNTIME_OWNER"
+    [ -f "$marker" ] || return 1
+    grep -Fxq 'owner=MMI-Cockpit-Carplay' "$marker" 2>/dev/null || return 1
+    # Current markers also carry runtime=carplay-altscreen.  Accept the older
+    # one-line project owner marker for backward-compatible RESTORE, but if a
+    # runtime= field exists it must name this runtime exactly.
+    if grep -q '^runtime=' "$marker" 2>/dev/null; then
+        grep -Fxq 'runtime=carplay-altscreen' "$marker" 2>/dev/null || return 1
+    fi
+    return 0
+}
+
+runtime_empty_unowned_removable(){
+    root=$1
+    # Non-mutating mirror of the only unowned-runtime recovery we permit.
+    # The directory must contain no files/symlinks and no directories except
+    # the known empty project skeleton.
+    [ -d "$root" ] || return 1
+    [ ! -L "$root" ] || return 1
+    (
+        cd "$root" || exit 1
+        find . -print 2>/dev/null | sort | while IFS= read -r rel; do
+            case "$rel" in
+              .|./bin|./bin/mirror|./lib|./state) ;;
+              *) exit 7 ;;
+            esac
+        done
+    )
+}
+
+runtime_cleanup_precheck(){
+    # Every logical reason that could make persistent runtime cleanup refuse
+    # must be decided before RESTORE APPLY touches startup/JAR/native files.
+    [ ! -e "$RUNTIME_STAGE" ] || {
+        echo "RUNTIME_CLEANUP_PRECHECK=FAIL reason=STAGING_PATH_PRESENT production_changed=NO" >&2
         return 1
     }
-    [ ! -e "$RUNTIME_PREV" ] && return 0
-    mount_app_rw || return 1
-    rm -rf "$RUNTIME_PREV" || { mount_app_ro >/dev/null 2>&1 || true; return 1; }
-    sync >/dev/null 2>&1 || true
-    mount_app_ro || return 1
-    echo "RUNTIME_PREVIOUS_REMOVED=PASS"
+
+    if [ -e "$RUNTIME_PREV" ]; then
+        runtime_owned_by_project "$RUNTIME_PREV" || {
+            echo "RUNTIME_CLEANUP_PRECHECK=FAIL reason=PREVIOUS_RUNTIME_UNOWNED production_changed=NO" >&2
+            return 1
+        }
+    fi
+
+    if [ ! -e "$RUNTIME_ROOT" ]; then
+        echo "RUNTIME_CLEANUP_PRECHECK=PASS root=ABSENT previous=$([ -e "$RUNTIME_PREV" ] && echo OWNED || echo ABSENT) production_changed=NO"
+        return 0
+    fi
+
+    [ -d "$RUNTIME_ROOT" ] && [ ! -L "$RUNTIME_ROOT" ] || {
+        echo "RUNTIME_CLEANUP_PRECHECK=FAIL reason=RUNTIME_NOT_SAFE_DIRECTORY production_changed=NO" >&2
+        return 1
+    }
+
+    if runtime_owned_by_project "$RUNTIME_ROOT"; then
+        echo "RUNTIME_CLEANUP_PRECHECK=PASS root=OWNED previous=$([ -e "$RUNTIME_PREV" ] && echo OWNED || echo ABSENT) production_changed=NO"
+        return 0
+    fi
+
+    if runtime_empty_unowned_removable "$RUNTIME_ROOT"; then
+        echo "RUNTIME_CLEANUP_PRECHECK=PASS root=EMPTY_UNOWNED_RECOVERY previous=$([ -e "$RUNTIME_PREV" ] && echo OWNED || echo ABSENT) production_changed=NO"
+        return 0
+    fi
+
+    echo "RUNTIME_CLEANUP_PRECHECK=FAIL reason=UNOWNED_NONEMPTY_RUNTIME path=/mnt/app/root/carplay-altscreen production_changed=NO" >&2
+    return 1
+}
+
+remove_empty_unowned_runtime_residue(){
+    root=$1
+    # Re-run the exact non-mutating policy immediately before removal so a
+    # changed/foreign runtime can never be recursively deleted.
+    runtime_empty_unowned_removable "$root" || return 1
+    for dir in "$root/bin/mirror" "$root/bin" "$root/lib" "$root/state"; do
+        [ ! -e "$dir" ] && continue
+        rmdir "$dir" 2>/dev/null || return 1
+    done
+    rmdir "$root" 2>/dev/null || return 1
+    return 0
 }
 
 remove_runtime_scripts(){
-    [ ! -e "$RUNTIME_ROOT" ] || [ -f "$RUNTIME_ROOT/$RUNTIME_OWNER" ] || {
-        echo "FAIL: refusing to remove unowned runtime: /mnt/app/root/carplay-altscreen" >&2
-        return 1
-    }
-    [ ! -e "$RUNTIME_PREV" ] || [ -f "$RUNTIME_PREV/$RUNTIME_OWNER" ] || {
-        echo "FAIL: refusing to remove unowned previous runtime" >&2
-        return 1
-    }
-    mount_app_rw || return 1
-    cleanup_stale_runtime_stages || { mount_app_ro >/dev/null 2>&1 || true; return 1; }
-    if [ -e "$RUNTIME_ROOT" ] || [ -e "$RUNTIME_PREV" ] || [ -e "$RUNTIME_STAGE" ]; then
-        [ ! -e "$RUNTIME_ROOT" ] || rm -rf "$RUNTIME_ROOT" || { mount_app_ro >/dev/null 2>&1 || true; return 1; }
-        [ ! -e "$RUNTIME_PREV" ] || rm -rf "$RUNTIME_PREV" || { mount_app_ro >/dev/null 2>&1 || true; return 1; }
-        rm -rf "$RUNTIME_STAGE" 2>/dev/null || true
-        sync >/dev/null 2>&1 || true
+    runtime_unowned=0
+    if [ -e "$RUNTIME_ROOT" ] && ! runtime_owned_by_project "$RUNTIME_ROOT"; then
+        runtime_unowned=1
     fi
-    mount_app_ro || return 1
+    if [ -e "$RUNTIME_PREV" ]; then
+        runtime_owned_by_project "$RUNTIME_PREV" || {
+            echo "FAIL: refusing to remove unowned previous runtime" >&2
+            return 1
+        }
+    fi
+    [ ! -e "$RUNTIME_STAGE" ] || {
+        echo "FAIL: refusing to remove unexpected runtime staging path" >&2
+        return 1
+    }
+
+    if [ -e "$RUNTIME_ROOT" ] || [ -e "$RUNTIME_PREV" ]; then
+        mount_app_rw || return 1
+        if [ -e "$RUNTIME_ROOT" ]; then
+            if [ "$runtime_unowned" = 1 ]; then
+                if remove_empty_unowned_runtime_residue "$RUNTIME_ROOT"; then
+                    echo "RUNTIME_EMPTY_RESIDUE_REMOVED=PASS path=/mnt/app/root/carplay-altscreen policy=empty_known_dirs_only"
+                else
+                    mount_app_ro >/dev/null 2>&1 || true
+                    echo "FAIL: refusing to remove unowned non-empty runtime: /mnt/app/root/carplay-altscreen" >&2
+                    return 1
+                fi
+            else
+                rm -rf "$RUNTIME_ROOT" || { mount_app_ro >/dev/null 2>&1 || true; return 1; }
+            fi
+        fi
+        [ ! -e "$RUNTIME_PREV" ] || rm -rf "$RUNTIME_PREV" || { mount_app_ro >/dev/null 2>&1 || true; return 1; }
+        sync >/dev/null 2>&1 || true
+        mount_app_ro || return 1
+    fi
     echo "RUNTIME_SCRIPTS_REMOVED=PASS path=/mnt/app/root/carplay-altscreen"
     return 0
 }
 
 persistent_diag_helper(){
-    if [ -f "$RUNTIME_BIN/altscreen_persistent_diag.sh" ]; then
-        printf '%s\n' "$RUNTIME_BIN/altscreen_persistent_diag.sh"
-        return 0
-    fi
+    # Prefer the SD package copy so RESTORE always uses the same audited
+    # transaction logic as the package being executed, even if an older runtime
+    # helper is still installed under /mnt/app from a previous V3 build.
     if [ -f "$PERSIST_DIAG_SD" ]; then
         printf '%s\n' "$PERSIST_DIAG_SD"
+        return 0
+    fi
+    if [ -f "$RUNTIME_BIN/altscreen_persistent_diag.sh" ]; then
+        printf '%s\n' "$RUNTIME_BIN/altscreen_persistent_diag.sh"
         return 0
     fi
     return 1
@@ -467,12 +492,54 @@ route_for_existing(){
     return 1
 }
 
+route_for_restore(){
+    route_for_existing && return 0
+
+    # Recovery must not depend only on disposable state markers. If the
+    # trusted universal recovery set exists, it is sufficient proof to select
+    # UNIVERSAL even after an older partial uninstall removed route markers.
+    if [ -f "$BACKUP_ROOT/original/COMPLETE" ] &&
+       [ -f "$BACKUP_ROOT/universal-hook-original/COMPLETE" ]; then
+        echo UNIVERSAL
+        return 0
+    fi
+    if [ -f "$VOLUME/Backup/AltScreenChain/original/COMPLETE" ] &&
+       [ -f "$VOLUME/Backup/AltScreenChain/universal-hook-original/COMPLETE" ]; then
+        echo UNIVERSAL
+        return 0
+    fi
+    return 1
+}
+
+restore_transaction_active(){
+    [ -f "$RESTORE_TXN_DIR/PREPARED" ] || [ -f "$RESTORE_TXN_DIR/APPLYING" ]
+}
+
+install_transaction_active(){
+    [ -d "$INSTALL_TXN_DIR" ] || return 1
+    [ -f "$INSTALL_TXN_DIR/COMMITTED" ] && return 1
+    [ -f "$INSTALL_TXN_DIR/ROLLED_BACK" ] && return 1
+    return 0
+}
+
+install_transaction_cleanup_terminal(){
+    [ -d "$INSTALL_TXN_DIR" ] || return 0
+    if [ -f "$INSTALL_TXN_DIR/COMMITTED" ] || [ -f "$INSTALL_TXN_DIR/ROLLED_BACK" ]; then
+        rm -rf "$INSTALL_TXN_DIR" 2>/dev/null || {
+            echo "WARN: terminal install transaction retained on SD; it is non-blocking" >&2
+            return 0
+        }
+        echo "INSTALL_TRANSACTION_TERMINAL_CLEANUP=PASS"
+    fi
+    return 0
+}
+
 delegate(){
     route=$1; shift
     case "$route" in
       UNIVERSAL)
         [ -f "$UNIVERSAL" ] || fail "AUG22 universal controller missing: $UNIVERSAL"
-        ALTSCREEN_SD_VOLUME="$VOLUME" /bin/sh "$UNIVERSAL" "$@"
+        /bin/sh "$UNIVERSAL" "$@"
         ;;
       K1004|P1404)
         # Historical profile runtime is intentionally unreachable.  The sole
@@ -493,72 +560,24 @@ delegate(){
 delegate_install(){
     route=$1
     ensure_dirs "$STATE_DIR" "$LOG_ROOT" "$BACKUP_ROOT" "$STAGING_ROOT" || return 1
-    tmp="$STATE_DIR/.child-install.$$"
+    # Child controller output is bounded, process-local scratch. Keep it as one
+    # flat /tmp file so INSTALL never depends on creating a QNX /tmp directory tree.
+    tmp="$ROUTER_TMP"
     delegate "$route" install > "$tmp" 2>&1
     rc=$?
-    tail -c 1048576 "$tmp" > "$LOG_ROOT/operations/INSTALL.log" 2>/dev/null || true
     sed 's/^INSTALL=PASS /CHILD_INSTALL=PASS /' "$tmp"
     rm -f "$tmp"
     return "$rc"
 }
 
-record_transaction(){
-    ensure_dirs "$STATE_DIR" "$LOG_ROOT/operations" || return 1
-    for stale in "$STATE_DIR"/.child-install.* "$STATE_DIR"/.child-restore.*; do
-        [ -e "$stale" ] || [ -L "$stale" ] || continue
-        suffix=${stale##*.}
-        case "$suffix" in ''|*[!0-9]*) continue ;; esac
-        kill -0 "$suffix" 2>/dev/null && continue
-        [ ! -d "$stale" ] && rm -f "$stale" || return 1
-    done
-    printf '%s action=%s state=%s\n' "$(date +%Y%m%d_%H%M%S)" "$1" "$2" > "$LOG_ROOT/operations/TRANSACTION.log"
-}
-
-delegate_restore_recorded(){
-    route=$1
-    ensure_dirs "$STATE_DIR" "$LOG_ROOT/operations" || return 1
-    tmp="$STATE_DIR/.child-restore.$$"
-    delegate "$route" restore > "$tmp" 2>&1
-    rc=$?
-    tail -c 1048576 "$tmp" > "$LOG_ROOT/operations/RESTORE.log" 2>/dev/null || true
-    cat "$tmp"
-    rm -f "$tmp"
-    return "$rc"
-}
-
-# Confirm actual SD writes before any persistent vehicle mutation. Some QNX
-# mounts appear present but are read-only until explicitly remounted.
-precheck_sd_write(){
-    probe="$VOLUME/.altscreen-write-probe.$$"
-    token="altscreen-write-probe-$$"
-    if [ "$TESTING" = 1 ]; then
-        [ -d "$VOLUME" ] || { echo "FAIL: test SD volume missing" >&2; return 1; }
-    fi
-    sd_probe_once(){
-        ( umask 077; printf '%s\n' "$token" > "$probe" ) 2>/dev/null || return 1
-        [ "$(cat "$probe" 2>/dev/null)" = "$token" ] || return 1
-        rm -f "$probe" 2>/dev/null || return 1
-        return 0
-    }
-    if sd_probe_once; then return 0; fi
-    rm -f "$probe" 2>/dev/null || true
-    if [ "$TESTING" != 1 ]; then
-        mount -uw "$VOLUME" >/dev/null 2>&1 || true
-        if sd_probe_once; then echo "SD_WRITE=READY remounted=YES volume=$VOLUME"; return 0; fi
-    fi
-    rm -f "$probe" 2>/dev/null || true
-    echo "FAIL: SD_NOT_WRITABLE volume=$VOLUME" >&2
-    return 1
-}
-
 CMD=${1:-}
 case "$CMD" in
-  sd-preflight)
-    precheck_sd_write || exit 1
-    echo "SD_WRITE=READY volume=$VOLUME"
-    ;;
   install)
-    precheck_sd_write || exit 1
+    restore_transaction_active && fail "restore transaction is active; recover/finish RESTORE ORIGINAL before INSTALL"
+    install_transaction_cleanup_terminal
+    if install_transaction_active && [ "${ALTS_INSTALL_TXN_ACTIVE:-0}" != 1 ]; then
+        fail "install transaction is active; recover/finish transactional INSTALL before direct controller INSTALL"
+    fi
     route=$(select_install_route "${2:-}") || exit 1
     existing_route=""
     if [ -f "$INSTALLED_MARKER" ] && [ -f "$ROUTE_FILE" ]; then existing_route="$ROUTE_FILE";
@@ -575,64 +594,83 @@ case "$CMD" in
     echo "ROUTER_PROFILE=$route policy=AUG22_UNIVERSAL_ONLY known_profiles=REFERENCE_RESTORE_ONLY"
     validate_runtime_sources || exit 1
     precheck_app_runtime || exit 1
-    record_transaction INSTALL IN_PROGRESS || fail "cannot record INSTALL transaction"
-    mark_runtime_pending || fail "cannot mark installed runtime as pending"
     if ! install_runtime_scripts; then
-        rollback_runtime_scripts >/dev/null 2>&1 || echo "WARN: runtime rollback incomplete; retry RESTORE ORIGINAL" >&2
+        rollback_runtime_scripts >/dev/null 2>&1 || true
         echo "FAIL: persistent runtime could not be staged under /mnt/app/root; no CarPlay mutation attempted" >&2
         exit 1
     fi
     if ! delegate_install "$route"; then
-        rollback_runtime_scripts >/dev/null 2>&1 || echo "WARN: runtime rollback incomplete; retry RESTORE ORIGINAL" >&2
+        rollback_runtime_scripts >/dev/null 2>&1 || true
         exit 1
     fi
     if [ "$route" = UNIVERSAL ]; then
         diag=$(persistent_diag_helper || true)
-        if [ -z "$diag" ] || ! ALTSCREEN_SD_VOLUME="$VOLUME" /bin/sh "$diag" install; then
+        if [ -z "$diag" ] || ! /bin/sh "$diag" install; then
             echo "FAIL: universal persistent diagnostics could not be installed; rolling back" >&2
-            [ -z "$diag" ] || ALTSCREEN_SD_VOLUME="$VOLUME" /bin/sh "$diag" remove >/dev/null 2>&1 || true
+            [ -z "$diag" ] || /bin/sh "$diag" remove >/dev/null 2>&1 || true
             delegate "$route" restore >/dev/null 2>&1 || echo "WARN: rollback failed; use RESTORE ORIGINAL before reboot" >&2
-            rollback_runtime_scripts >/dev/null 2>&1 || echo "WARN: runtime rollback incomplete; retry RESTORE ORIGINAL" >&2
+            rollback_runtime_scripts >/dev/null 2>&1 || true
             exit 1
         fi
     fi
     ensure_dirs "$STATE_DIR" || exit 1
     echo "$route" > "$ROUTE_FILE" || exit 1
-    commit_runtime_scripts || fail "previous runtime cleanup failed after INSTALL"
-    clear_runtime_pending || fail "installed runtime could not be activated; retry INSTALL"
-    record_transaction INSTALL COMMITTED || echo "WARN: INSTALL completed but SD transaction log could not be updated" >&2
+    commit_runtime_scripts || {
+        echo "FAIL: installed runtime rollback-slot cleanup failed; transactional INSTALL will restore PRE_INSTALL state" >&2
+        exit 1
+    }
     echo "ROUTER_INSTALL=PASS profile=$route runtime=/mnt/app/root/carplay-altscreen/bin no_eso_write=YES"
     ;;
-  restore)
-    precheck_sd_write || exit 1
-    route=$(route_for_existing) || fail "no installed firmware route; run INSTALL first"
+  restore-precheck)
+    route=$(route_for_restore) || fail "no trusted restore route/recovery set is available"
     echo "ROUTER_PROFILE=$route"
-    record_transaction RESTORE IN_PROGRESS || fail "cannot record RESTORE transaction"
-    mark_runtime_pending || fail "cannot mark runtime as pending for RESTORE"
+    [ "$route" = UNIVERSAL ] || fail "transactional restore precheck currently requires UNIVERSAL recovery data"
+    delegate "$route" restore-precheck || exit $?
+    runtime_cleanup_precheck || fail "runtime cleanup precheck failed; production files unchanged"
+    diag=$(persistent_diag_helper || true)
+    [ -n "$diag" ] && [ -f "$diag" ] ||
+        fail "universal persistent diagnostics helper is missing; production files unchanged"
+    /bin/sh "$diag" remove-precheck ||
+        fail "persistent diagnostics removal precheck failed; production files unchanged"
+    echo "RESTORE_ROUTER_PRECHECK=PASS runtime_cleanup=SAFE persistent_diag=SAFE production_changed=NO"
+    ;;
+  restore)
+    route=$(route_for_restore) || fail "no trusted restore route/recovery set is available"
+    echo "ROUTER_PROFILE=$route"
     if [ "$route" = UNIVERSAL ]; then
+        # Recheck backup/runtime safety immediately before mutation. The outer
+        # transaction wrapper already ran this path before RESTORE APPLY.
+        delegate "$route" restore-precheck || fail "universal restore precheck failed; production files unchanged"
+        runtime_cleanup_precheck || fail "runtime cleanup changed after preflight; refusing partial restore"
         diag=$(persistent_diag_helper || true)
-        [ -n "$diag" ] || fail "universal persistent diagnostics helper is missing; refusing partial restore"
-        ALTSCREEN_SD_VOLUME="$VOLUME" /bin/sh "$diag" remove || fail "could not disable universal persistent diagnostics"
+        [ -n "$diag" ] && [ -f "$diag" ] ||
+            fail "universal persistent diagnostics helper is missing; refusing partial restore"
+        /bin/sh "$diag" remove-precheck ||
+            fail "persistent diagnostics removal precheck changed after outer preflight"
+        /bin/sh "$diag" remove || fail "could not disable universal persistent diagnostics"
     fi
-    delegate_restore_recorded "$route" || exit $?
+    delegate "$route" restore || exit $?
     remove_runtime_scripts || fail "originals restored but persistent runtime cleanup failed"
-    cleanup_volatile_runtime || fail "project volatile cleanup failed after RESTORE"
-    record_transaction RESTORE COMMITTED || echo "WARN: RESTORE completed but SD transaction log could not be updated" >&2
+    cleanup_volatile_runtime
     ;;
-  restore-preflight)
-    precheck_sd_write || exit 1
-    route=$(route_for_existing) || fail "no installed firmware route"
-    [ "$route" = UNIVERSAL ] || fail "legacy route requires its original restore controller"
-    ALTSCREEN_SD_VOLUME="$VOLUME" /bin/sh "$UNIVERSAL" restore-preflight
-    ;;
-  start|status|collect|disarm)
-    if [ "$CMD" != status ]; then precheck_sd_write || exit 1; fi
-    if [ "$CMD" = start ] && [ -e "$RUNTIME_PENDING" ]; then
-        fail "an INSTALL or RESTORE is incomplete; run RESTORE ORIGINAL, then INSTALL"
-    fi
+  start)
+    restore_transaction_active && fail "restore transaction is active; START is blocked until recovery/restore completes"
+    install_transaction_cleanup_terminal
+    install_transaction_active && fail "install transaction is active; START is blocked until INSTALL commits or rolls back"
     route=$(route_for_existing) || fail "no installed firmware route; run INSTALL first"
     echo "ROUTER_PROFILE=$route"
     delegate "$route" "$CMD"
     ;;
-  *) echo "usage: altscreen_chain_test.sh {install|start|status|restore|restore-preflight|disarm|collect}" >&2; exit 2 ;;
+  status|collect)
+    route=$(route_for_existing) || fail "no installed firmware route; run INSTALL first"
+    echo "ROUTER_PROFILE=$route"
+    restore_transaction_active && echo "RESTORE_TRANSACTION=ACTIVE path=$RESTORE_TXN_DIR"
+    if install_transaction_active; then
+        echo "INSTALL_TRANSACTION=ACTIVE path=$INSTALL_TXN_DIR"
+    elif [ -d "$INSTALL_TXN_DIR" ]; then
+        echo "INSTALL_TRANSACTION=TERMINAL_STALE path=$INSTALL_TXN_DIR non_blocking=YES"
+    fi
+    delegate "$route" "$CMD"
+    ;;
+  *) echo "usage: altscreen_chain_test.sh {install|start|status|restore-precheck|restore|collect}" >&2; exit 2 ;;
 esac

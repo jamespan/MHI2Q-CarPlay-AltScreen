@@ -1,11 +1,21 @@
 ###########################################################################################
-# MMI-Cockpit-Carplay - CarPlay private111 Direct Display V2
+# MMI-Cockpit-Carplay V3.5 - CarPlay Private111 Direct Display / Context80
 ###########################################################################################
 screen "MMI-Cockpit-Carplay" Customization
 
 keyValue
     value   String sys 0x00000000 0
-    label   "Direct flow: type111 -> stock OMX -> decoded SHM -> GLES displayable3 -> Java Context80"
+    label   "Version: V3.5 - cold-start + dynamic ViewArea"
+    poll    0
+
+keyValue
+    value   String sys 0x00000000 0
+    label   "Flow: type111 -> H264 tap -> stock OMX -> decoded SHM -> displayable3 -> Java Context80"
+    poll    0
+
+keyValue
+    value   String sys 0x00000000 0
+    label   "SafeArea: Y 72..450 / FULL+SMALL dynamic; Window58 readback disabled"
     poll    0
 
 script

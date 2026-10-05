@@ -42,27 +42,27 @@ if [ "$TESTING" = 1 ]; then
     mount_rw(){ :; }
     mount_ro(){ :; }
 else
-    VOLUME=${ALTSCREEN_SD_VOLUME:-}
-    if [ -n "$VOLUME" ]; then
-        [ -f "$VOLUME/Toolbox/scripts/altscreen_chain_test_universal.sh" ] || fail "selected SD card does not contain this controller"
-    else
-        for candidate in /net/mmx/fs/sda0 /net/mmx/fs/sda1 /net/mmx/fs/sdb0 /net/mmx/fs/sdb1 /fs/sda0 /fs/sda1 /fs/sdb0 /fs/sdb1; do
-            if [ -f "$candidate/MMI-Cockpit-Carplay/state/firmware_profile.txt" ] &&
-               [ -f "$candidate/Toolbox/scripts/altscreen_chain_test_universal.sh" ]; then
-                VOLUME=$candidate; break
-            fi
-        done
-    fi
-    [ -n "$VOLUME" ] || fail "no matching AltScreen SD card discovered"
+    for candidate in /net/mmx/fs/sda0 /net/mmx/fs/sda1 /net/mmx/fs/sdb0 /net/mmx/fs/sdb1 /fs/sda0 /fs/sda1 /fs/sdb0 /fs/sdb1; do
+        if [ -d "$candidate/Toolbox" ]; then VOLUME=$candidate; break; fi
+    done
+    [ -n "$VOLUME" ] || fail "no Toolbox SD card discovered"
     mount_rw(){ mount -uw "$1"; }
     mount_ro(){ mount -ur "$1"; }
 fi
+
+SD_RW_HELPER="$VOLUME/Toolbox/scripts/altscreen_sd_writable.sh"
+[ -f "$SD_RW_HELPER" ] || fail "SD writable helper missing: $SD_RW_HELPER"
+. "$SD_RW_HELPER"
 
 ARTIFACT_DIR="$VOLUME/Toolbox/carplay_alt_screen"
 UNIVERSAL_SRC="$ARTIFACT_DIR/universal/libcarplay_altscreen.so"
 UNIVERSAL_REL="/mnt/app/root/carplay-altscreen/lib/libcarplay_altscreen.so"
 LEGACY_UNIVERSAL_REL="/mnt/app/root/hooks/libcarplay_altscreen.so"
 UNIVERSAL_DST="$(p "$UNIVERSAL_REL")"
+RGI_META_SRC="$ARTIFACT_DIR/rgi_meta/libcarplay_rgi_meta.so"
+RGI_META_REL="/mnt/app/root/carplay-altscreen/lib/libcarplay_rgi_meta.so"
+RGI_META_DST="$(p "$RGI_META_REL")"
+RGI_CONFIG="$VOLUME/Toolbox/scripts/altscreen_v33_rgi_config.sh"
 PRELOAD_AWK="$VOLUME/Toolbox/scripts/altscreen_preload.awk"
 LIVE_DIO_CANDIDATES="/eso/bin/apps/dio_manager /mnt/app/eso/bin/apps/dio_manager"
 LIVE_NME_CANDIDATES="/armle/usr/lib/libNmeBaseClasses.so /mnt/app/armle/usr/lib/libNmeBaseClasses.so /eso/lib/libNmeBaseClasses.so"
@@ -78,7 +78,6 @@ STATE_DIR="$SD_ROOT/state"
 LOG_ROOT="$SD_ROOT/logs"
 BACKUP_ROOT="$SD_ROOT/backup"
 STAGING_ROOT="$SD_ROOT/staging"
-RUNTIME_STATE_DIR="$(p /mnt/app/root/carplay-altscreen/state)"
 BACKUP_DIR="$BACKUP_ROOT/original"
 LEGACY_STATE_DIR="$VOLUME/Log/MMI-Cockpit-Carplay/current"
 LEGACY_BACKUP_ROOT="$VOLUME/Backup/AltScreenChain"
@@ -91,10 +90,12 @@ UNIVERSAL_BACKUP_DIR="$BACKUP_ROOT/universal-hook-original"
 UNIVERSAL_BACKUP_FILE="$UNIVERSAL_BACKUP_DIR/libcarplay_altscreen.so"
 UNIVERSAL_BACKUP_COMPLETE="$UNIVERSAL_BACKUP_DIR/COMPLETE"
 LOCK_FILE="$STATE_DIR/.chain_test.lock"
-LOCK_BOOT_TOKEN_FILE="$(p /tmp/MMI-Cockpit-Carplay.lock.boot_token)"
+LOCK_BOOT_TOKEN_FILE="$(p /tmp/altscreen_boot_token)"
 LOCK_OWNER_TAG="MMI-Cockpit-Carplay-Universal"
 INSTALLED_MARKER="$STATE_DIR/INSTALLED"
-PROBE_MARKER="$RUNTIME_STATE_DIR/fullchain_probe"
+PROBE_MARKER="$(p /mnt/app/root/carplay-altscreen/state/fullchain_probe)"
+TXN_ROOT="$STAGING_ROOT/controller-txn"
+TXN_DIR="$TXN_ROOT/universal.$$"
 FIREWALL_BEGIN="# BEGIN ALTSCREEN TYPE111 FIREWALL"
 FIREWALL_END="# END ALTSCREEN TYPE111 FIREWALL"
 
@@ -104,34 +105,37 @@ locate_first(){
 }
 same_bytes(){ [ -f "$1" ] && [ -f "$2" ] && cmp -s "$1" "$2" 2>/dev/null; }
 nonempty(){ [ -s "$1" ]; }
-stage_and_publish() (
-    src=$1; dst=$2; mode=$3; dir=$(dirname -- "$dst"); tmp="$dir/.$(basename -- "$dst").new.$$"
-    ensure_dirs "$dir" || return 1
-    cp "$src" "$tmp" || { rm -f "$tmp"; return 1; }
-    chmod "$mode" "$tmp" || { rm -f "$tmp"; return 1; }
-    same_bytes "$src" "$tmp" || { rm -f "$tmp"; return 1; }
-    mv "$tmp" "$dst" || { rm -f "$tmp"; return 1; }
-)
-
-# A power loss can leave an unpublished file beside a system configuration.
-# Only remove this installer's exact numeric staging names while /mnt/system is
-# writable; the live files and SD backups are never matched.
-cleanup_stale_system_publish_files(){
-    for rel in "$LIVE_JSON_SI" "$LIVE_JSON_DIO" "$LIVE_PF_CONF" \
-               /mnt/system/etc/boot/startup.sh /etc/boot/startup.sh; do
-        dst=$(p "$rel")
-        dir=$(dirname -- "$dst")
-        base=$(basename -- "$dst")
-        for stale in "$dir/.$base.new."*; do
-            [ -e "$stale" ] || [ -L "$stale" ] || continue
-            suffix=${stale##*.}
-            case "$suffix" in ''|*[!0-9]*) continue ;; esac
-            [ ! -d "$stale" ] || { say "FAIL: unexpected staging directory: $stale"; return 1; }
-            rm -f "$stale" || return 1
-            say "STALE_SYSTEM_STAGE_REMOVED=$stale"
-        done
-    done
+system_space_snapshot(){
+    label=$1
+    target="$(p /mnt/system)"
+    say "SYSTEM_SPACE_BEGIN label=$label path=$target"
+    df -k "$target" 2>/dev/null || df "$target" 2>/dev/null || true
+    say "SYSTEM_SPACE_END label=$label"
 }
+cleanup_txn(){ [ ! -e "$TXN_DIR" ] || rm -rf "$TXN_DIR" 2>/dev/null || true; }
+trap cleanup_txn 0
+stage_and_publish() (
+    src=$1; dst=$2; mode=$3; dir=$(dirname -- "$dst"); base=$(basename -- "$dst")
+    tmp="$dir/.$base.new.$$"
+    ensure_dirs "$dir" || return 1
+    if same_bytes "$src" "$dst"; then
+        chmod "$mode" "$dst" 2>/dev/null || return 1
+        say "PUBLISH_SKIP_IDENTICAL path=$dst"
+        return 0
+    fi
+    rm -f "$dir/.$base.new."* 2>/dev/null || true
+    if cp "$src" "$tmp"; then
+        :
+    else
+        rc=$?
+        rm -f "$tmp" 2>/dev/null || true
+        case "$dst" in "$(p /mnt/system)/"*) say "SYSTEM_WRITE_FAILED stage=copy target=$dst"; system_space_snapshot publish_copy_failed ;; esac
+        return "$rc"
+    fi
+    chmod "$mode" "$tmp" || { rc=$?; rm -f "$tmp" 2>/dev/null || true; return "$rc"; }
+    same_bytes "$src" "$tmp" || { rm -f "$tmp" 2>/dev/null || true; return 1; }
+    mv "$tmp" "$dst" || { rc=$?; rm -f "$tmp" 2>/dev/null || true; return "$rc"; }
+)
 
 migrate_legacy_dir() {
     legacy=$1; target=$2; label=$3
@@ -147,10 +151,12 @@ migrate_legacy_dir() {
     return 0
 }
 migrate_legacy_layout() {
-    ensure_dirs "$STATE_DIR" "$LOG_ROOT/operations" "$LOG_ROOT/boots" \
+    ensure_dirs "$STATE_DIR" "$LOG_ROOT/operations" "$LOG_ROOT/boots" "$LOG_ROOT/sessions" \
                 "$LOG_ROOT/adaptive" "$BACKUP_ROOT" "$STAGING_ROOT" || return 1
     if [ -d "$LEGACY_STATE_DIR" ]; then
-        for leaf in INSTALLED firmware_profile.txt RESTORE_PENDING_REBOOT; do
+        for leaf in INSTALLED firmware_profile.txt ARMED ARMED_MUTATE ARMED_IAP2 ARMED_INFO \
+                    ARMED_FEATURE ARMED_CREATE111 ACTIVE FORCE_START FULL_CHAIN_MODE \
+                    NATIVE_DISPLAY_MODE IAP2_PROFILE run_id session_path RESTORE_PENDING_REBOOT; do
             [ -e "$LEGACY_STATE_DIR/$leaf" ] || continue
             [ -e "$STATE_DIR/$leaf" ] || cp "$LEGACY_STATE_DIR/$leaf" "$STATE_DIR/$leaf" || return 1
         done
@@ -262,6 +268,8 @@ lock_reap_stale(){
     fi
 }
 lock_acquire(){
+    altscreen_sd_ensure_writable "$VOLUME" "CONTROLLER_${CMD:-UNKNOWN}" ||
+        fail "cannot make Toolbox SD writable"
     migrate_legacy_layout || fail "cannot initialize unified SD layout"
     ensure_dirs "$(dirname -- "$LOCK_FILE")" || fail "cannot create lock directory"
     boot=$(lock_boot_token) || fail "cannot establish volatile boot token for operation lock"
@@ -275,23 +283,6 @@ lock_acquire(){
         fail "operation lock owner metadata could not be published"
     fi
     LOCK_HELD=1
-    # Interrupted operations may leave unpublished SD stages. They never hold
-    # authoritative backups, and can be safely removed after the lock is held.
-    for stale in "$STAGING_ROOT"/universal-original.* "$STAGING_ROOT"/import_* \
-                 "$BACKUP_ROOT"/firewall-original.new.* "$BACKUP_ROOT"/universal-hook-original.new.*; do
-        [ -e "$stale" ] || continue
-        rm -rf "$stale" || { lock_release; fail "cannot clear interrupted SD stage: $stale"; }
-    done
-    for stale in "$STATE_DIR"/universal-config.* "$STATE_DIR"/pf.clean.*; do
-        [ -e "$stale" ] || continue
-        suffix=${stale##*.}
-        case "$suffix" in ''|*[!0-9]*) continue ;; esac
-        [ ! -d "$stale" ] && rm -f "$stale" || { lock_release; fail "cannot clear interrupted SD draft: $stale"; }
-    done
-    for stale in "$LOG_ROOT/sessions"/20*; do
-        [ -d "$stale" ] && [ ! -L "$stale" ] && rmdir "$stale" 2>/dev/null || true
-    done
-    [ ! -d "$LOG_ROOT/sessions" ] || rmdir "$LOG_ROOT/sessions" 2>/dev/null || true
     say "LOCK_ACQUIRED pid=$$ action=${CMD:-unknown}"
 }
 lock_release(){
@@ -338,6 +329,12 @@ verify_backup() (
 
 backup_originals() (
     if [ -f "$COMPLETE_MARKER" ]; then verify_backup || return 1; say "BACKUP=EXISTING kept"; return 0; fi
+    live_si=$(p "$LIVE_JSON_SI")
+    if grep -Fq 'libcarplay_altscreen.so' "$live_si" 2>/dev/null; then
+        say "NATIVE_REINSTALL_PRECHECK=FAIL reason=SMARTPHONE_INTEGRATOR_PRELOAD_PRESENT path=$LIVE_JSON_SI token=libcarplay_altscreen.so"
+        say "FAIL: trusted original backup is absent but live CarPlay config already references an AltScreen hook; reuse the original SD backup or restore stock first"
+        return 1
+    fi
     stage="$STAGING_ROOT/universal-original.$$"
     [ ! -e "$BACKUP_DIR" ] || { say "FAIL: incomplete original backup exists"; return 1; }
     ensure_dirs "$stage/files" || return 1
@@ -431,7 +428,8 @@ strip_firewall_block(){
 }
 remove_legacy_firewall_rule() (
     live=$(p "$LIVE_PF_CONF")
-    clean="$STATE_DIR/pf.clean.$$"
+    ensure_dirs "$TXN_DIR" || return 1
+    clean="$TXN_DIR/pf.clean"
     strip_firewall_block "$live" > "$clean" || return 1
     if ! same_bytes "$clean" "$live"; then
         stage_and_publish "$clean" "$live" 644 || { rm -f "$clean"; return 1; }
@@ -451,17 +449,24 @@ restore_overlay_baseline() (
     verify_backup || return 1
     backed_dir=$(cat "$BACKUP_DIR/overlay_dir.txt" 2>/dev/null || true)
     case "$backed_dir" in "$LIVE_LIBTARGET"|"$LEGACY_LIBTARGET") ;; *) return 1 ;; esac
-    ensure_dirs "$(p "$backed_dir")" "$(p "$LIVE_LIBTARGET")" || return 1
+    # Do not synthesize runtime/lib merely to restore an originally-absent
+    # overlay. stage_and_publish creates parents only when a real file exists.
     for name in libairplay.so libairplax.so libNmeBaseClasses.so; do
         dst="$(p "$backed_dir")/$name"
         if grep -q "^$name\$" "$BACKUP_DIR/overlay_present.txt" 2>/dev/null; then
             stage_and_publish "$BACKUP_DIR/files/overlay_$name" "$dst" 755 || return 1
         else
-            rm -f "$dst" || return 1
+            [ ! -e "$dst" ] || rm -f "$dst" || return 1
         fi
-        [ "$backed_dir" = "$LIVE_LIBTARGET" ] || rm -f "$(p "$LIVE_LIBTARGET")/$name" || return 1
+        if [ "$backed_dir" != "$LIVE_LIBTARGET" ]; then
+            live_dst="$(p "$LIVE_LIBTARGET")/$name"
+            [ ! -e "$live_dst" ] || rm -f "$live_dst" || return 1
+        fi
     done
+    [ -s "$BACKUP_DIR/overlay_present.txt" ] ||
+        say "OVERLAY_BASELINE=ABSENT no_runtime_dir_synthesis=YES"
 )
+
 restore_universal_hook() (
     verify_universal_backup || return 1
     present=$(cat "$UNIVERSAL_BACKUP_DIR/present")
@@ -486,12 +491,17 @@ restore_originals() (
     done < "$BACKUP_MANIFEST"
     restore_overlay_baseline || return 1
     restore_universal_hook || return 1
+    # V3.3 metadata transport lives at a project-owned unique path.  The
+    # original smartphone_integrator/dio_manager files are restored above.
+    rm -f "$RGI_META_DST" 2>/dev/null || return 1
     restore_firewall || return 1
 )
 
 check_sources(){
     ensure_dirs "$STATE_DIR" || return 1
     nonempty "$UNIVERSAL_SRC" || { say "FAIL: universal hook missing: $UNIVERSAL_SRC"; return 1; }
+    nonempty "$RGI_META_SRC" || { say "FAIL: V3.3 RGI metadata hook missing: $RGI_META_SRC"; return 1; }
+    nonempty "$RGI_CONFIG" || { say "FAIL: V3.3 RGI config helper missing: $RGI_CONFIG"; return 1; }
     nonempty "$PRELOAD_AWK" || { say "FAIL: altscreen_preload.awk missing"; return 1; }
     dio_rel=$(locate_first "$LIVE_DIO_CANDIDATES") || return 1
     nme_rel=$(locate_first "$LIVE_NME_CANDIDATES") || return 1
@@ -502,47 +512,47 @@ check_sources(){
     return 0
 }
 
-runtime_disarm(){
-    rm -f "$RUNTIME_STATE_DIR/ARMED" "$RUNTIME_STATE_DIR/ARMED_MUTATE" \
-          "$RUNTIME_STATE_DIR/ARMED_IAP2" "$RUNTIME_STATE_DIR/ARMED_INFO" \
-          "$RUNTIME_STATE_DIR/ARMED_FEATURE" "$RUNTIME_STATE_DIR/ARMED_CREATE111" \
-          "$RUNTIME_STATE_DIR/ACTIVE" "$RUNTIME_STATE_DIR/FORCE_START" \
-          "$RUNTIME_STATE_DIR/FULL_CHAIN_MODE" "$RUNTIME_STATE_DIR/NATIVE_DISPLAY_MODE" \
-          "$RUNTIME_STATE_DIR/run_id" "$RUNTIME_STATE_DIR/IAP2_PROFILE" \
-          "$PROBE_MARKER" || return 1
-    # A prior release used SD flags. Delete them so another copy of the card
-    # cannot carry authority forward after a runtime upgrade.
-    rm -f "$STATE_DIR/ARMED" "$STATE_DIR/ARMED_MUTATE" "$STATE_DIR/ARMED_IAP2" \
-          "$STATE_DIR/ARMED_INFO" "$STATE_DIR/ARMED_FEATURE" "$STATE_DIR/ARMED_CREATE111" \
-          "$STATE_DIR/ACTIVE" "$STATE_DIR/FORCE_START" "$STATE_DIR/FULL_CHAIN_MODE" \
-          "$STATE_DIR/NATIVE_DISPLAY_MODE" "$STATE_DIR/run_id" \
-          "$STATE_DIR/session_path" "$STATE_DIR/IAP2_PROFILE" || return 1
-}
-
 cmd_install(){
     lock_acquire
+    ensure_dirs "$TXN_DIR" || { lock_release; return 1; }
+    system_space_snapshot install_begin
     check_sources || { lock_release; return 1; }
     backup_originals || { say "FAIL: original backup failed"; lock_release; return 1; }
     backup_firewall || { say "FAIL: firewall backup failed"; lock_release; return 1; }
     backup_universal_hook || { say "FAIL: universal hook backup failed"; lock_release; return 1; }
     mount_rw "$(p /mnt/app)" || { lock_release; return 1; }; MR_APP=1
     mount_rw "$(p /mnt/system)" || { finish_mounts; lock_release; return 1; }; MR_SYS=1
-    cleanup_stale_system_publish_files || { finish_mounts; lock_release; return 1; }
     LIVE_DIRTY=1
     ensure_dirs "$(dirname -- "$UNIVERSAL_DST")" "$(p "$LIVE_LIBTARGET")" "$(dirname -- "$PROBE_MARKER")" || goto_fail=1
-    if [ "${goto_fail:-0}" != 1 ]; then runtime_disarm || goto_fail=1; fi
     if [ "${goto_fail:-0}" != 1 ]; then restore_overlay_baseline || goto_fail=1; fi
     if [ "${goto_fail:-0}" != 1 ]; then stage_and_publish "$UNIVERSAL_SRC" "$UNIVERSAL_DST" 755 || goto_fail=1; fi
+    if [ "${goto_fail:-0}" != 1 ]; then stage_and_publish "$RGI_META_SRC" "$RGI_META_DST" 755 || goto_fail=1; fi
     if [ "${goto_fail:-0}" != 1 ]; then
-        cfg="$STATE_DIR/universal-config.$$"
-        awk -v hook="$UNIVERSAL_REL" \
+        # Normalize both project preloads idempotently.  RGI first, then
+        # AltScreen, so the final stable order is AltScreen:RGI:other-stock.
+        cfg_rgi="$TXN_DIR/rgi-preload-config"
+        cfg="$TXN_DIR/universal-config"
+        awk -v hook="$RGI_META_REL" \
             -v exclude=/mnt/app/root/hooks/libcarplay_hook.so \
-            -v exclude2=/mnt/app/root/hooks/libcp_mirror.so -v exclude_prefix=/mnt/app/root/hooks/libcarplay_altscreen.so \
-            -v insert_if_absent=1 -f "$PRELOAD_AWK" "$(p "$LIVE_JSON_SI")" > "$cfg" || goto_fail=1
+            -v insert_if_absent=1 -f "$PRELOAD_AWK" "$(p "$LIVE_JSON_SI")" > "$cfg_rgi" || goto_fail=1
+        if [ "${goto_fail:-0}" != 1 ]; then
+            awk -v hook="$UNIVERSAL_REL" \
+                -v exclude=/mnt/app/root/hooks/libcarplay_hook.so \
+                -v exclude2=/mnt/app/root/hooks/libcp_mirror.so -v exclude_prefix=/mnt/app/root/hooks/libcarplay_altscreen.so \
+                -v insert_if_absent=1 -f "$PRELOAD_AWK" "$cfg_rgi" > "$cfg" || goto_fail=1
+        fi
         if [ "${goto_fail:-0}" != 1 ]; then
             stage_and_publish "$cfg" "$(p "$LIVE_JSON_SI")" 644 || goto_fail=1
         fi
-        rm -f "$cfg"
+        rm -f "$cfg_rgi" "$cfg"
+    fi
+    if [ "${goto_fail:-0}" != 1 ]; then
+        /bin/sh "$RGI_CONFIG" apply "$(p "$LIVE_JSON_DIO")" || goto_fail=1
+    fi
+    if [ "${goto_fail:-0}" != 1 ]; then
+        awk -v query="$UNIVERSAL_REL" -f "$PRELOAD_AWK" "$(p "$LIVE_JSON_SI")" >/dev/null || goto_fail=1
+        awk -v query="$RGI_META_REL" -f "$PRELOAD_AWK" "$(p "$LIVE_JSON_SI")" >/dev/null || goto_fail=1
+        /bin/sh "$RGI_CONFIG" verify "$(p "$LIVE_JSON_DIO")" >/dev/null || goto_fail=1
     fi
     if [ "${goto_fail:-0}" != 1 ]; then remove_legacy_firewall_rule || goto_fail=1; fi
     if [ "${goto_fail:-0}" = 1 ]; then
@@ -552,11 +562,17 @@ cmd_install(){
     fi
     touch "$INSTALLED_MARKER" || { restore_originals; finish_mounts || true; LIVE_DIRTY=0; lock_release; return 1; }
     echo UNIVERSAL > "$STATE_DIR/firmware_profile.txt" || { restore_originals; finish_mounts || true; LIVE_DIRTY=0; lock_release; return 1; }
-    rm -f "$STATE_DIR/RESTORE_PENDING_REBOOT" || { restore_originals; finish_mounts || true; LIVE_DIRTY=0; lock_release; return 1; }
+    rm -f "$STATE_DIR/ARMED" "$STATE_DIR/ARMED_MUTATE" "$STATE_DIR/ARMED_IAP2" \
+          "$STATE_DIR/ARMED_INFO" "$STATE_DIR/ARMED_FEATURE" "$STATE_DIR/ARMED_CREATE111" \
+          "$STATE_DIR/ACTIVE" "$STATE_DIR/FORCE_START" "$STATE_DIR/FULL_CHAIN_MODE" "$STATE_DIR/NATIVE_DISPLAY_MODE" \
+          "$STATE_DIR/RESTORE_PENDING_REBOOT"
     finish_mounts || { lock_release; return 1; }
     LIVE_DIRTY=0
+    system_space_snapshot install_end
+    cleanup_txn
     say "FIRMWARE_PROFILE=UNIVERSAL source=aug22_unified_policy stock_reuse=YES"
     say "UNIVERSAL_PRELOAD=INSTALLED path=$UNIVERSAL_REL resolver=ELF_DYNAMIC_RELOCATION"
+    say "V33_RGI_METADATA=INSTALLED path=$RGI_META_REL messages=0x5200-0x5204 lower_bar=19,21,22 map_scale=stock"
     lock_release || return 1
     say "INSTALL=PASS reboot_required=YES"
 }
@@ -564,86 +580,76 @@ cmd_install(){
 cmd_start(){
     lock_acquire
     if [ "$TESTING" != 1 ] && [ "${ALTSCREEN_INTEGRATED_START:-0}" != 1 ]; then
-        say "FAIL: direct controller START is disabled; use start_mmi_cockpit_carplay_rx_test.sh so type111 and standalone BaseVideo3/Java80 start as one transaction"
+        say "FAIL: direct controller START is disabled; use start_mmi_cockpit_carplay_rx_test.sh so native negotiation and stream-driven display start as one transaction"
         lock_release
         return 1
     fi
     [ -f "$INSTALLED_MARKER" ] || { say "FAIL: INSTALL must run before START"; lock_release; return 1; }
-    [ ! -e "$RUNTIME_STATE_DIR/transaction.pending" ] || { say "FAIL: incomplete INSTALL or RESTORE"; lock_release; return 1; }
     verify_backup || { say "FAIL: original backup damaged"; lock_release; return 1; }
     verify_firewall_backup || { say "FAIL: firewall backup damaged"; lock_release; return 1; }
     [ -s "$UNIVERSAL_DST" ] || { say "FAIL: universal preload missing"; lock_release; return 1; }
     awk -v query="$UNIVERSAL_REL" -f "$PRELOAD_AWK" "$(p "$LIVE_JSON_SI")" >/dev/null || {
         say "FAIL: universal preload is not armed in carplay env"; lock_release; return 1; }
-    if [ -f "$RUNTIME_STATE_DIR/ACTIVE" ]; then
-        lock_release || return 1
-        say "START=ALREADY_ACTIVE reboot_required=YES"
-        return 0
-    fi
-    mount_rw "$(p /mnt/app)" || { lock_release; return 1; }; MR_APP=1
-    run_id="$(date +%Y%m%d_%H%M%S)_$$"
-    started=1
-    ensure_dirs "$RUNTIME_STATE_DIR" || started=0
-    if [ "$started" = 1 ]; then runtime_disarm || started=0; fi
-    if [ "$started" = 1 ]; then printf '%s\n' "$run_id" > "$RUNTIME_STATE_DIR/run_id" || started=0; fi
-    if [ "$started" = 1 ]; then printf '%s\n' observe > "$RUNTIME_STATE_DIR/IAP2_PROFILE" || started=0; fi
-    if [ "$started" = 1 ]; then printf '%s\n' "$run_id" > "$PROBE_MARKER" || started=0; fi
-    if [ "$started" = 1 ]; then
-        for m in ARMED ARMED_MUTATE ARMED_INFO ARMED_FEATURE ARMED_CREATE111 FORCE_START; do
-            touch "$RUNTIME_STATE_DIR/$m" || { started=0; break; }
-        done
-    fi
-    if [ "$started" = 1 ]; then touch "$RUNTIME_STATE_DIR/ACTIVE" || started=0; fi
-    if [ "$started" != 1 ]; then
-        runtime_disarm || say "WARN: failed START flags require RESTORE"
-        finish_mounts || true
-        lock_release
-        return 1
-    fi
-    if ! finish_mounts; then
-        mount_rw "$(p /mnt/app)" >/dev/null 2>&1 || true
-        runtime_disarm || say "WARN: failed START flags require RESTORE"
-        finish_mounts || true
-        lock_release
-        return 1
-    fi
-    say "AUTH_PRIVATE111_CORE=UNCHANGED resolver=dynamic"
+
+    run_id="$(date +%Y%m%d_%H%M%S)_$"; session="$LOG_ROOT/sessions/$run_id"
+    ensure_dirs "$session" "$STATE_DIR" || { lock_release; return 1; }
+    echo "$run_id" > "$STATE_DIR/run_id"; echo "$session" > "$STATE_DIR/session_path"
+
+    # V3.5 production policy: preload installation is the persistent enable;
+    # contract. SD markers remain diagnostics/rollback metadata only and may not
+    # gate a CarPlay session. Remove legacy arming files so an old card cannot
+    # accidentally reintroduce V3.3 authorization semantics.
+    rm -f "$STATE_DIR/ARMED" "$STATE_DIR/ARMED_MUTATE" "$STATE_DIR/ARMED_IAP2" \
+          "$STATE_DIR/ARMED_INFO" "$STATE_DIR/ARMED_FEATURE" "$STATE_DIR/ARMED_CREATE111" \
+          "$STATE_DIR/FORCE_START" "$STATE_DIR/FULL_CHAIN_MODE" "$STATE_DIR/NATIVE_DISPLAY_MODE"
+    touch "$STATE_DIR/ACTIVE" || { lock_release; return 1; }
+
+    say "AUTH_PRIVATE111_CORE=V35_EARLY_PROTOCOL_READY authority=installed_preload sd_runtime_gate=DISABLED geometry_gate=ASYNC"
+    say "NEGOTIATION_POLICY=ONE_CARPLAY_SESSION automatic_main110_then_private111 no_display_gate=YES early_capability_wait=BOUNDED"
     say "DISPLAY_PATH=PRIVATE111_DIRECT source=ScreenStreamProcessData h264_shm=/carplay111_h264 decoder_backend=stock_omx_screen_linearized_shm decoded_shm=/carplay111_decoded sink=displayable3_gles context_owner=JAVA80 window58_readback=0"
-    say "IAP2_PROFILE=observe ARMED_IAP2=ABSENT policy=owner_corrected_no_themeassets_synthesis"
+    say "IAP2_THEMEASSETS_MUTATION=DISABLED policy=V33_PROVEN_PRIVATE111_WITHOUT_THEMEASSETS"
     lock_release || return 1
     say "START=PASS profile=UNIVERSAL run_id=$run_id reboot_required=YES"
 }
 
+cmd_restore_precheck(){
+    lock_acquire
+    rc=0
+    verify_backup || { say "FAIL: original backup unavailable or damaged"; rc=1; }
+    if [ "$rc" = 0 ]; then
+        verify_universal_backup || { say "FAIL: universal hook backup unavailable or damaged"; rc=1; }
+    fi
+    if [ "$rc" = 0 ]; then
+        verify_firewall_backup || { say "FAIL: firewall original backup unavailable or damaged"; rc=1; }
+    fi
+    if [ "$rc" = 0 ]; then
+        say "RESTORE_PRECHECK=PASS profile=UNIVERSAL production_changed=NO"
+    else
+        say "RESTORE_PRECHECK=FAIL profile=UNIVERSAL production_changed=NO"
+    fi
+    lock_release || rc=1
+    return "$rc"
+}
+
 cmd_restore(){
     lock_acquire
+    ensure_dirs "$TXN_DIR" || { lock_release; return 1; }
+    system_space_snapshot restore_begin
     verify_backup || { say "FAIL: original backup unavailable or damaged"; lock_release; return 1; }
     verify_universal_backup || { say "FAIL: universal hook backup unavailable or damaged"; lock_release; return 1; }
+    rm -f "$STATE_DIR/ARMED" "$STATE_DIR/ARMED_MUTATE" "$STATE_DIR/ARMED_IAP2" \
+          "$STATE_DIR/ARMED_INFO" "$STATE_DIR/ARMED_FEATURE" "$STATE_DIR/ARMED_CREATE111" \
+          "$STATE_DIR/ACTIVE" "$STATE_DIR/FORCE_START" "$STATE_DIR/FULL_CHAIN_MODE" "$STATE_DIR/NATIVE_DISPLAY_MODE"
     mount_rw "$(p /mnt/app)" || { lock_release; return 1; }; MR_APP=1
     mount_rw "$(p /mnt/system)" || { finish_mounts; lock_release; return 1; }; MR_SYS=1
-    runtime_disarm || { finish_mounts; lock_release; return 1; }
-    cleanup_stale_system_publish_files || { finish_mounts; lock_release; return 1; }
     restore_originals || { say "FAIL: restore failed"; finish_mounts || true; lock_release; return 1; }
-    rm -f "$INSTALLED_MARKER"
+    rm -f "$PROBE_MARKER" "$INSTALLED_MARKER"
     touch "$STATE_DIR/RESTORE_PENDING_REBOOT"
     finish_mounts || { lock_release; return 1; }
+    system_space_snapshot restore_end
+    cleanup_txn
     lock_release || return 1
     say "RESTORE=PASS profile=UNIVERSAL bytes_verified=1 reboot_required=YES"
-}
-
-cmd_restore_preflight(){
-    verify_backup || { say "FAIL: original backup unavailable or damaged"; return 1; }
-    verify_universal_backup || { say "FAIL: universal hook backup unavailable or damaged"; return 1; }
-    verify_firewall_backup || { say "FAIL: firewall backup unavailable or damaged"; return 1; }
-    say "RESTORE_PREFLIGHT=PASS profile=UNIVERSAL"
-}
-
-cmd_disarm(){
-    lock_acquire
-    mount_rw "$(p /mnt/app)" || { lock_release; return 1; }; MR_APP=1
-    runtime_disarm || { finish_mounts; lock_release; return 1; }
-    finish_mounts || { lock_release; return 1; }
-    lock_release || return 1
-    say "DISARM=PASS profile=UNIVERSAL"
 }
 
 cmd_status(){
@@ -654,18 +660,15 @@ cmd_status(){
         echo "OPERATION_LOCK=ABSENT"
     fi
     [ -f "$INSTALLED_MARKER" ] && echo "INSTALLED=YES" || echo "INSTALLED=NO"
-    if [ -e "$RUNTIME_STATE_DIR/transaction.pending" ] || [ -e "$RUNTIME_STATE_DIR/start.pending" ]; then
-        echo "RUNTIME_TRANSACTION=INCOMPLETE stock_forwarding=YES action=RESTORE_OR_RETRY"
-    else
-        echo "RUNTIME_TRANSACTION=CLEAR authority=APP"
-    fi
     [ -s "$UNIVERSAL_DST" ] && echo "UNIVERSAL_PRELOAD=PRESENT $UNIVERSAL_REL" || echo "UNIVERSAL_PRELOAD=ABSENT"
     if awk -v query="$UNIVERSAL_REL" -f "$PRELOAD_AWK" "$(p "$LIVE_JSON_SI")" >/dev/null 2>&1; then
         echo "UNIVERSAL_PRELOAD_CONFIG=ARMED"
     else
         echo "UNIVERSAL_PRELOAD_CONFIG=NOT_ARMED"
     fi
-    for m in ARMED ACTIVE FORCE_START ARMED_IAP2; do [ -e "$RUNTIME_STATE_DIR/$m" ] && echo "MARKER $m=PRESENT" || echo "MARKER $m=ABSENT"; done
+    for m in ACTIVE ARMED FORCE_START ARMED_IAP2; do [ -e "$STATE_DIR/$m" ] && echo "MARKER $m=PRESENT" || echo "MARKER $m=ABSENT"; done
+    echo "NEGOTIATION_POLICY=V35_EARLY_PROTOCOL_READY sd_runtime_gate=DISABLED geometry_gate=ASYNC"
+    echo "DISPLAY_START_POLICY=STREAM_DRIVEN stable_decoded_frames=2 fixed_delay=NONE"
     echo "FIRMWARE_PROFILE=UNIVERSAL"
     echo "RESOLVER_POLICY=dynamic_symbols_plus_ELF_relocations fail_open=YES"
     echo "FIREWALL_TYPE111=RUNTIME_EXACT_PORT persistent_high_port_range=ABSENT"
@@ -674,11 +677,14 @@ cmd_status(){
 cmd_collect(){
     cmd_status
     for candidate in \
-        "$(p /tmp/MMI-Cockpit-Carplay.altscreen_hook.log)" \
         "$(p /tmp/altscreen_hook.log)" \
+        "$(p /tmp/MMI-Cockpit-Carplay/altscreen_hook.log)" \
+        "$(p /tmp/MMI-Cockpit-Carplay.altscreen_hook.log)" \
         "$(p /tmp/CinemoDioManager.log)" \
+        "$(p /tmp/altscreen_boot_entry.log)" \
+        "$(p /tmp/MMI-Cockpit-Carplay/boot_entry.log)" \
         "$(p /tmp/MMI-Cockpit-Carplay.boot_entry.log)" \
-        "$(p /tmp/MMI-Cockpit-Carplay.mirror.autostart.log)" \
+        "$(p /tmp/MMI-Cockpit-Carplay/mirror/autostart.log)" \
         "$(p /tmp/mmi-mirror-controller.log)" \
         "$(p /tmp/mmi-mirror-controller.started)" \
         "$(p /tmp/mmi-mirror-active)" \
@@ -699,9 +705,8 @@ case "$CMD" in
   install) cmd_install ;;
   start) cmd_start ;;
   status) cmd_status ;;
+  restore-precheck) cmd_restore_precheck ;;
   restore) cmd_restore ;;
-  restore-preflight) cmd_restore_preflight ;;
-  disarm) cmd_disarm ;;
   collect) cmd_collect ;;
-  *) echo "usage: $PROG {install|start|status|restore|restore-preflight|disarm|collect}" >&2; exit 2 ;;
+  *) echo "usage: $PROG {install|start|status|restore-precheck|restore|collect}" >&2; exit 2 ;;
 esac

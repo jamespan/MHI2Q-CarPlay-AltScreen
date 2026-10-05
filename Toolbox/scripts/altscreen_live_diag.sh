@@ -78,18 +78,21 @@ capture() (
 
 select_hook_source() {
     for candidate in \
-        "$ROOT/tmp/MMI-Cockpit-Carplay.altscreen_hook.log" \
-        "$ROOT/tmp/altscreen_hook.log"; do
+        "$ROOT/tmp/altscreen_hook.log" \
+        "$ROOT/tmp/MMI-Cockpit-Carplay/altscreen_hook.log" \
+        "$ROOT/tmp/MMI-Cockpit-Carplay.altscreen_hook.log"; do
         [ -f "$candidate" ] && { printf '%s\n' "$candidate"; return 0; }
     done
-    printf '%s\n' "$ROOT/tmp/MMI-Cockpit-Carplay.altscreen_hook.log"
+    printf '%s\n' "$ROOT/tmp/altscreen_hook.log"
 }
 select_boot_entry_source() {
     for candidate in \
+        "$ROOT/tmp/altscreen_boot_entry.log" \
+        "$ROOT/tmp/MMI-Cockpit-Carplay/boot_entry.log" \
         "$ROOT/tmp/MMI-Cockpit-Carplay.boot_entry.log"; do
         [ -f "$candidate" ] && { printf '%s\n' "$candidate"; return 0; }
     done
-    printf '%s\n' "$ROOT/tmp/MMI-Cockpit-Carplay.boot_entry.log"
+    printf '%s\n' "$ROOT/tmp/altscreen_boot_entry.log"
 }
 
 # Keep one small, deliberately filtered plaintext diagnostic on SD. This file is
