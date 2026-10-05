@@ -63,6 +63,7 @@ if [ "${ALTS_DIAG_CAPTURED:-0}" != 1 ]; then
         fi
     fi
     cat "$journal"
+    rm -f "$journal" 2>/dev/null || true
     exit "$journal_rc"
 fi
 
@@ -125,11 +126,21 @@ fi
 # Shared by fixtures and production. Test actual file creation first: a legacy
 # launcher may already have mounted the SD writable. A mount return code alone
 # is not evidence that writing worked (or that an already-writable SD failed).
-SD_RW_HELPER="$VOLUME/Toolbox/scripts/altscreen_sd_writable.sh"
-[ -f "$SD_RW_HELPER" ] || fail "SD writable helper missing: $SD_RW_HELPER"
-. "$SD_RW_HELPER"
 sd_writable() {
-    altscreen_sd_ensure_writable "$VOLUME" "KNOWN_CONTROLLER_${CMD:-UNKNOWN}"
+    sd_probe="$VOLUME/.altscreen_write_probe.$$"
+    if ( : > "$sd_probe" ) 2>/dev/null; then
+        rm -f "$sd_probe" || return 1
+        say "SD_WRITE=PASS already_writable=1"
+        return 0
+    fi
+    mount_rw "$VOLUME" || say "WARN: SD remount failed; checking actual write access"
+    if ( : > "$sd_probe" ) 2>/dev/null; then
+        rm -f "$sd_probe" || return 1
+        say "SD_WRITE=PASS after_remount=1"
+        return 0
+    fi
+    say "SD_WRITE=FAILED volume=$VOLUME"
+    return 1
 }
 ARTIFACT_DIR="$VOLUME/Toolbox/carplay_alt_screen"
 # Profile artifacts are ordinary files under profiles/<K1004|P1404>.
@@ -149,7 +160,7 @@ STAGE_DIR="$STAGING_ROOT/original"
 LOCK_FILE="$STATE_DIR/.chain_test.lock"
 LEGACY_STATE_DIR="$VOLUME/Log/MMI-Cockpit-Carplay/current"
 LEGACY_BACKUP_ROOT="$VOLUME/Backup/AltScreenChain"
-LOCK_BOOT_TOKEN_FILE="$(p /tmp/altscreen_boot_token)"
+LOCK_BOOT_TOKEN_FILE="$(p /tmp/MMI-Cockpit-Carplay.lock.boot_token)"
 LOCK_OWNER_TAG="MMI-Cockpit-Carplay-Known"
 BACKUP_MANIFEST="$BACKUP_DIR/manifest.txt"
 COMPLETE_MARKER="$BACKUP_DIR/COMPLETE"
@@ -356,12 +367,31 @@ stage_and_publish() (
     src=$1; dst=$2; mode=$3
     dir=$(dirname -- "$dst")
     tmp="$dir/.$(basename -- "$dst").new.$$"
-    cp "$src" "$tmp" || { say "FAIL: cannot copy $src to $tmp"; return 1; }
+    cp "$src" "$tmp" || { say "FAIL: cannot copy $src to $tmp"; rm -f "$tmp"; return 1; }
     chmod "$mode" "$tmp" || { say "FAIL: cannot chmod $tmp"; rm -f "$tmp"; return 1; }
     same_bytes "$src" "$tmp" || { rm -f "$tmp"; return 1; }
     mv "$tmp" "$dst" || { say "FAIL: cannot publish $dst"; rm -f "$tmp"; return 1; }
     return 0
 )
+
+# Historical installs used the same in-directory staging convention. Remove
+# only unpublished files from interrupted writes when restoring that profile.
+cleanup_stale_system_publish_files() {
+    for rel in "$LIVE_JSON_SI" "$LIVE_JSON_DIO" "$LIVE_PF_CONF" \
+               /mnt/system/etc/boot/startup.sh /etc/boot/startup.sh; do
+        dst=$(p "$rel")
+        dir=$(dirname -- "$dst")
+        base=$(basename -- "$dst")
+        for stale in "$dir/.$base.new."*; do
+            [ -e "$stale" ] || [ -L "$stale" ] || continue
+            suffix=${stale##*.}
+            case "$suffix" in ''|*[!0-9]*) continue ;; esac
+            [ ! -d "$stale" ] || { say "FAIL: unexpected staging directory: $stale"; return 1; }
+            rm -f "$stale" || return 1
+            say "STALE_SYSTEM_STAGE_REMOVED=$stale"
+        done
+    done
+}
 
 # ---------------------------------------------------------------- subcommands
 cmd_install() {
@@ -706,8 +736,7 @@ install_boot_diagnostics() (
     PATH=${PATH:-/bin:/usr/bin}:/proc/boot:/armle/bin:/armle/scripts:/bin:/usr/bin:/usr/sbin:/sbin:/mnt/app/armle/bin:/mnt/app/armle/sbin:/mnt/app/armle/usr/bin:/mnt/app/armle/usr/sbin:/eso/bin:/eso/bin/apps
     LD_LIBRARY_PATH=${LD_LIBRARY_PATH:-}:/proc/boot:/usr/lib:/armle/lib:/armle/lib/dll:/lib:/mnt/app/root/carplay-altscreen/lib:/eso/lib:/mnt/app/usr/lib:/mnt/app/armle/lib:/mnt/app/armle/lib/dll:/mnt/app/armle/usr/lib:/lib/dll
     export PATH LD_LIBRARY_PATH
-    # Flat /tmp contract: boot diagnostics must not depend on mkdir support.
-    ALTS_BOOT_ENTRY=/tmp/altscreen_boot_entry.log
+    ALTS_BOOT_ENTRY=/tmp/MMI-Cockpit-Carplay.boot_entry.log
     if ( : >> "$ALTS_BOOT_ENTRY" ) 2>/dev/null; then
         exec >> "$ALTS_BOOT_ENTRY" 2>&1
     fi
@@ -858,6 +887,7 @@ cmd_restore() {
           "$STATE_DIR/NATIVE_DISPLAY_MODE" || exit 1
     mount_rw "$(p /mnt/system)" || { lock_release; exit 1; }; MR_SYS=1
     mount_rw "$(p /mnt/app)" || { lock_release; exit 1; }; MR_APP=1
+    cleanup_stale_system_publish_files || { finish_mounts; lock_release; exit 1; }
     restore_originals || { say "FAIL: restore failed"; finish_mounts; lock_release; exit 1; }
     rm -f "$PROBE_MARKER" "$STATE_DIR/.mibcarplay_fullchain_probe" "$STATE_DIR/INSTALLED" || exit 1
     touch "$STATE_DIR/RESTORE_PENDING_REBOOT" || exit 1
@@ -997,13 +1027,12 @@ collect_details() {
         say "MISSING $1"
         return 1
     }
-    print_log "$(p /tmp/altscreen_hook.log)" \
-              "$(p /tmp/MMI-Cockpit-Carplay/altscreen_hook.log)" \
-              "$(p /tmp/MMI-Cockpit-Carplay.altscreen_hook.log)" || true
+    print_log "$(p /tmp/MMI-Cockpit-Carplay/altscreen_hook.log)" \
+              "$(p /tmp/MMI-Cockpit-Carplay.altscreen_hook.log)" \
+              "$(p /tmp/altscreen_hook.log)" || true
     print_log "$(p /tmp/CinemoDioManager.log)" "" "" || true
-    print_log "$(p /tmp/altscreen_boot_entry.log)" \
-              "$(p /tmp/MMI-Cockpit-Carplay/boot_entry.log)" \
-              "$(p /tmp/MMI-Cockpit-Carplay.boot_entry.log)" || true
+    print_log "$(p /tmp/MMI-Cockpit-Carplay/boot_entry.log)" \
+              "$(p /tmp/MMI-Cockpit-Carplay.boot_entry.log)" "" || true
     for operation in "$(p /tmp)"/altscreen_operation_*.log; do
         [ -f "$operation" ] || continue
         print_log "$operation" "" "" || true
