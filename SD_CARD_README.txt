@@ -1,4 +1,4 @@
-MMI Cockpit CarPlay 第二屏覆盖包（AUG22 / V2.1）
+MMI Cockpit CarPlay 第二屏覆盖包（AUG22 / V3.5 + 内嵌 Logo + 重连修复）
 
 1. 从 https://github.com/jilleb/mib2-toolbox 下载最新代码 ZIP。解压后将其内容复制到
    FAT32 SD 卡根目录，按上游说明通过车机软件更新安装 MIB2 Toolbox 绿菜单。
@@ -12,15 +12,16 @@ MMI Cockpit CarPlay 第二屏覆盖包（AUG22 / V2.1）
    进入 Customization → MMI-Cockpit-Carplay。
 5. 断开 iPhone → INSTALL → 完整重启 → START → 完整重启 → 连接 CarPlay → 开导航。
    仅支持安装脚本可核验的 AUG22 固件。
-6. 收到有效第二屏视频后，aux17 资源以原大小的 80% 居中显示约 2 秒；
-   运行时启用 aux2c 动态覆盖层，最高不透明度 10%。
-   两项资源均内嵌在运行二进制中。
+6. 第二屏解码帧就绪后播放约 4.57 秒开屏视频，70% 居中、四周纯黑，随后
+   550 毫秒整屏交叉淡化到 CarPlay。正常首连及新会话播放；同会话异常恢复跳过。
+   视频内嵌于二进制，无外置视频。两个 BUILD_INFO.txt 是安装必需文件，须保留。
+   已修复自动断开清理留下主动停止标记的问题，下一会话可重新启动显示。
 7. 恢复使用 RESTORE ORIGINAL；恢复时插入保留原车备份的 SD 卡。
 本包只包含本项目的覆盖文件，不附带上游完整 MIB2 Toolbox。
 
-第二屏显示链路已完成实车验证。覆盖前请备份 SD 卡；覆盖后可用 SHA256SUMS-SD.txt 核验本项目文件。
+历史第二屏链路已完成实车验证。本次 QNX ARM 编译及主机连续重连测试通过，新增开屏与重连修复待实车确认。覆盖前请备份 SD 卡；覆盖后可用 SHA256SUMS-SD.txt 核验本项目文件。
 
-MMI Cockpit CarPlay AltScreen overlay (AUG22 / V2.1)
+MMI Cockpit CarPlay AltScreen overlay (AUG22 / V3.5 + embedded logo + reconnect fix)
 
 1. Download the latest ZIP from https://github.com/jilleb/mib2-toolbox. Extract it and
    copy its contents to the root of a FAT32 SD card. Follow the upstream instructions
@@ -38,14 +39,18 @@ MMI Cockpit CarPlay AltScreen overlay (AUG22 / V2.1)
 5. Disconnect the iPhone -> INSTALL -> fully reboot -> START -> fully reboot ->
    reconnect CarPlay -> start navigation. Only AUG22 firmware verified by the
    installation scripts is supported.
-6. On valid secondary-display video, aux17 appears centered at 80% of
-   its former size for about two seconds. The runtime uses the reference project's
-   aux2c overlay at 10%
-   maximum opacity. Both resources are embedded in the runtime binary; no separate
-   image files are shipped.
+6. Once decoded secondary-display frames are ready, the embedded video intro plays
+   for about 4.57 seconds at 70% centered scale with black padding, followed by a
+   550 ms whole-plane crossfade to CarPlay. First connections and new sessions play
+   the intro; same-session crash recovery skips it. No external video is needed.
+   Both BUILD_INFO.txt files are required for installation and must be retained.
+   Automatic disconnect cleanup no longer leaves an explicit-stop guard that
+   prevents the next display session from starting.
 7. Use RESTORE ORIGINAL to restore the stock configuration. Insert the SD card
    containing the original stock backup before restoring.
 This package contains only this project's overlay, not the full upstream Toolbox.
 
-The secondary-display path has been validated in a vehicle. Back up the SD card
-before merging files, then verify project files with SHA256SUMS-SD.txt.
+Earlier releases of the secondary-display path were validated in a vehicle.
+This QNX ARM build and host reconnect tests passed; the new intro and reconnect
+fix still need vehicle validation. Back up the SD card before merging files,
+then verify project files with SHA256SUMS-SD.txt.

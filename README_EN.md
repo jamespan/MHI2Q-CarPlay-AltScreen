@@ -1,11 +1,11 @@
-# MIB2 Toolbox — CarPlay AltScreen V2.2
+# MIB2 Toolbox — CarPlay AltScreen V3.5 + Embedded Logo
 
 **English** | [简体中文](README.md)
 
-This project is designed for the Audi **MHI2Q** platform and displays the **native CarPlay AltScreen / secondary navigation view** directly on the vehicle's **Virtual Cockpit**. The core display path has been verified in a vehicle. Read the [SD card instructions](SD_CARD_README.txt) before making changes to the head unit.
+This project is designed for the Audi **MHI2Q** platform and displays the **native CarPlay AltScreen / secondary navigation view** directly on the vehicle's **Virtual Cockpit**. The core display path was verified in a vehicle in earlier releases. This V3.5 package has passed QNX ARM compilation and host regression tests; the new video intro and reconnect fix still need vehicle validation. Read the [SD card instructions](SD_CARD_README.txt) before making changes to the head unit.
 
 
-**October 1 update: Classic / Sport dynamic layout adaptation has been added. This build is expected to remove the runtime watermark around mid-October.**
+**October 5 update: V3.5 with an embedded video intro, steering-wheel map zoom, RGI metadata for the OEM lower bar, and a fix for restarting the display after disconnect. The runtime no longer includes the old drifting watermark.**
 
 
 > [!NOTE]
@@ -20,7 +20,7 @@ This project is designed for the Audi **MHI2Q** platform and displays the **nati
 >
 > Mature features will be added gradually after cleanup, stability testing, and compatibility verification.
 >
-> This is not a demonstration build. The current CarPlay AltScreen functionality is already usable in a real vehicle.
+> Earlier public releases of CarPlay AltScreen were verified in a vehicle. The new intro and reconnect fix have passed host tests and still need vehicle confirmation.
 >
 > This project was originally developed around our own vehicles and day-to-day use cases. The current development and validation scope is focused on **MHI2Q / China-region (CN) firmware**. We currently **do not plan to actively adapt the project for the MHI2 platform or for US / ER and other regional firmware variants**. If your vehicle is outside the currently validated scope, do not assume compatibility and do not bypass the installer's checks to force installation.
 >
@@ -54,10 +54,13 @@ This project is designed for the Audi **MHI2Q** platform and displays the **nati
 - Logs and SD-card backups
 - Core display path vehicle-validated on **China-region AUG22 firmware**
 - Classic / Sport dynamic layout adaptation
+- Steering-wheel control for CarPlay map zoom
+- RGI navigation metadata for the OEM lower bar
+- Embedded video intro at 70% centered scale, with black padding and a whole-plane crossfade
+- Display restart fix after disconnect; production start/stop/supervisor scripts passed three consecutive connection tests
 
 ## Not yet included in the current public release
 
-- Steering-wheel control for CarPlay map zoom
 - More complete RGI navigation-data integration
 - Vehicle-marker centering across the full navigation view *(this update is being held back for now because some commercial solutions still have not solved the issue)*
 
@@ -152,7 +155,9 @@ In the `MMI-Cockpit-Carplay` menu, follow this order and let each action finish 
 1. **Disconnect the iPhone / CarPlay** so navigation video is not playing during installation.
 2. Select `INSTALL`. Wait until it finishes. After `INSTALL=PASS` and `reboot_required=YES`, **fully reboot the head unit**. If it reports `FAIL`, record the message and stop.
 3. After reboot, select `START`. Wait for `START=PASS` and `reboot_required=YES`, then **fully reboot the head unit again**.
-4. After the second reboot, connect the iPhone, enter CarPlay, and start navigation. Check whether the Virtual Cockpit shows the secondary display and updates with navigation. Once valid secondary-display video arrives, the startup logo appears centered at 80% of its previous size for about two seconds. During operation, the original “Free and open source, resale prohibited” watermark from the sister project drifts and bounces within the visible video area at the reference program's frame-based rate. The startup logo is not the vehicle boot logo.
+4. After the second reboot, connect the iPhone, enter CarPlay, and start navigation. Check whether the Virtual Cockpit shows the secondary display and updates with navigation. When decoded secondary-display frames are ready, the embedded logo video plays for about 4.57 seconds at 70% centered scale with black padding, followed by a 550 ms whole-plane crossfade to CarPlay. The intro plays on the first connection and on new sessions; recovery of a crashed display process within the same session skips it. The video is compiled into the display binary and needs no external video file. This is the secondary-display startup animation.
+
+The reconnect fix distinguishes automatic session cleanup from explicit STOP/RESTORE, preventing a stale explicit-stop guard from blocking the next display session. Host tests use the production start, stop, and supervisor scripts with a mock display process; actual QNX display and vehicle reconnection still need validation. Both `BUILD_INFO.txt` files are required by installation checks and must be retained.
 
 ### 5. Check status and troubleshoot
 
@@ -174,7 +179,7 @@ See the [SD card instructions](SD_CARD_README.txt) for additional runtime notes.
 
 This project is developed by [yuedizhibo](https://github.com/yuedizhibo) and [Lanye-z](https://github.com/Lanye-z). The repository-root [PolyForm Noncommercial 1.0.0 license](LICENSE) applies only to original material that the relevant rights holders are entitled to publish under those terms: non-commercial use, modification, and redistribution are permitted, while commercial use requires separate permission from the relevant rights holders. This repository provides runtime binaries, installation scripts, and documentation; it does not publish the C/C++ source used to build the QNX binary. Because commercial use is restricted, the license is not open source under the OSI definition.
 
-The runtime watermark pixels come from [Lanye-z’s MMI Mirror project](https://github.com/Lanye-z/MHI2Q-CarPlay-MMI-Mirror), retaining the original 196×32 dimensions, with the current maximum opacity reduced to approximately 10%. Third-party files retain their existing licenses. Preserve the upstream MIB2 Toolbox [MIT license](LICENSE.TOOLBOX-MIT) and the mirror runtime's [separate license](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR).
+Earlier public releases used runtime watermark pixels from [Lanye-z’s MMI Mirror project](https://github.com/Lanye-z/MHI2Q-CarPlay-MMI-Mirror). This display binary uses an embedded video intro. Third-party files retain their existing licenses. Preserve the upstream MIB2 Toolbox [MIT license](LICENSE.TOOLBOX-MIT) and the mirror runtime's [separate license](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR).
 
 Research and implementation references:
 
@@ -190,8 +195,8 @@ Current recommended version:
 
 ~~~text
 main
-└── AUG22 / V2.1
-    └── Vehicle validated on China-region firmware
+└── AUG22 / V3.5 + embedded logo + reconnect fix
+    └── QNX ARM build and host tests passed; new intro and reconnect fix await vehicle validation
 ~~~
 
 The current public release prioritizes stable installation, normal use, and reliable recovery. Additional features will be introduced in stages.

@@ -1,10 +1,10 @@
-# MIB2 Toolbox — CarPlay AltScreen V2.2
+# MIB2 Toolbox — CarPlay AltScreen V3.5 + 内嵌 Logo
 
 [English](README_EN.md) | **简体中文**
 
-本项目面向 Audi **MHI2Q** 平台，用于将 **CarPlay 原生 AltScreen / 第二屏导航画面**直接显示至车辆的 **Virtual Cockpit**。核心显示链路已完成实车验证。操作前请先阅读 [SD 卡说明](SD_CARD_README.txt)。
+本项目面向 Audi **MHI2Q** 平台，用于将 **CarPlay 原生 AltScreen / 第二屏导航画面**直接显示至车辆的 **Virtual Cockpit**。历史版本的核心显示链路已完成实车验证；本次 V3.5 包已完成 QNX ARM 编译和主机回归测试，新增视频开屏及重连修复待实车验证。操作前请先阅读 [SD 卡说明](SD_CARD_README.txt)。
 
-**10月1日更新Classic / Sport动态布局适配，该版本预计十月中旬去除运行水印。** 
+**10月5日更新：V3.5 内嵌视频开屏、方向盘地图缩放、原车下栏 RGI 信息，以及断开后显示进程重启修复。当前运行包不含旧版漂移水印。**
 
 > [!NOTE]
 > **姊妹项目：MMI Mirror**  
@@ -18,7 +18,7 @@
 >
 > 后续会在完成整理、稳定性验证和兼容性确认后，逐步将成熟功能更新到公开版本。
 >
-> 当前版本并非演示代码，现有 CarPlay AltScreen 第二屏功能已经可以正常实车使用。
+> 历史公开版本的 CarPlay AltScreen 第二屏功能已完成实车验证；本次更新的开屏和重连修复已通过主机测试，仍需实车确认。
 >
 > 本项目最初就是基于我们自己的车辆和日常使用需求进行开发，当前开发与测试范围以 **MHI2Q / 中国区（CN）固件**为主。我们目前**不会针对 MHI2 平台，也不会针对 US / ER 等其他地区固件主动开展适配**。如果你的车辆不在当前已验证范围内，请不要默认其具备兼容性，也不要绕过安装脚本的检查强制安装。
 >
@@ -52,9 +52,12 @@
 - 日志与 SD 卡备份
 - 核心显示链路已在 **中国区 AUG22 固件**完成实车验证
 - Classic / Sport 动态布局适配
+- 方向盘滚轮控制 CarPlay 地图缩放
+- RGI 导航信息对接原车下栏
+- 内嵌视频开屏：70% 居中、四周纯黑，整屏交叉淡化
+- 断开后显示进程重启修复；连续三次连接的真实启动/停止/监督脚本测试已通过
 
 ## 暂未包含在当前公开版本
-- 方向盘滚轮控制 CarPlay 地图缩放
 - 更完整的 RGI 导航信息联动
 - 导航时车标全域居中（考虑到部分市售方案暂未解决该问题，故暂缓更新）
 
@@ -150,7 +153,9 @@ Script not found:
 1. **断开 iPhone / CarPlay**，避免安装过程中正在输出导航视频。
 2. 选择 `INSTALL`。等待执行结束；看到 `INSTALL=PASS` 且提示 `reboot_required=YES` 后，**完整重启车机**。若出现 `FAIL`，先记录提示并停止后续步骤。
 3. 重启完成后选择 `START`。等待 `START=PASS` 和 `reboot_required=YES`，然后**再次完整重启车机**。若失败，不要直接跳到连接手机。
-4. 第二次重启后连接 iPhone、进入 CarPlay 并启动导航。观察 Virtual Cockpit 是否出现第二屏画面且能随导航更新。收到有效第二屏视频后，启动 Logo 缩至原大小的 80%、居中显示约 2 秒；运行时参考项目原始的“免费开源，禁止倒卖”水印会按参考程序的逐帧节奏在可见视频区域内漂移、碰边折返。启动 Logo 不是整车开机 Logo。
+4. 第二次重启后连接 iPhone、进入 CarPlay 并启动导航。观察 Virtual Cockpit 是否出现第二屏画面且能随导航更新。第二屏解码帧就绪后播放约 4.57 秒的内嵌 Logo 视频：70% 居中缩放、四周纯黑，随后用 550 毫秒把整屏开屏画面交叉淡化到 CarPlay。正常首连及新会话播放；同一会话的显示进程异常重启跳过动画。视频硬编译在显示二进制中，无需外置视频文件；它是第二屏开屏动画。
+
+本次修复区分自动会话清理与主动 STOP/RESTORE，避免第一次断开后留下主动停止标记而阻止下次显示。主机测试使用真实启动、停止及监督脚本和模拟显示进程；实际 QNX 显示与实车重连待验证。两个 `BUILD_INFO.txt` 是安装检查所需文件，必须保留。
 
 #### 5. 查看状态和排查
 
@@ -172,7 +177,7 @@ Script not found:
 
 本项目由 [yuedizhibo](https://github.com/yuedizhibo) 和 [Lanye-z](https://github.com/Lanye-z) 共同开发。仓库根目录的 [PolyForm Noncommercial 1.0.0 许可](LICENSE)仅适用于相应权利人有权按该许可发布的原创部分：允许非商业使用、修改和分发；商业使用须另行取得相关权利人的许可。本仓库提供运行二进制、安装脚本和说明，未提供构建该 QNX 二进制的 C/C++ 源码；由于限制商用，该许可不属于 OSI 定义的开源许可。
 
-运行时水印像素取自 [Lanye-z 的 MMI Mirror 项目](https://github.com/Lanye-z/MHI2Q-CarPlay-MMI-Mirror)，保留原始 196×32 尺寸，当前最高不透明度约为 10%。仓库中包含第三方文件，其原有授权不因仓库根目录的许可而改变。上游 MIB2 Toolbox 的 [MIT 许可](LICENSE.TOOLBOX-MIT)和镜像运行组件的[独立许可](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR)均须保留；使用或再分发时应分别遵守其条款。
+此前公开版本的运行水印像素取自 [Lanye-z 的 MMI Mirror 项目](https://github.com/Lanye-z/MHI2Q-CarPlay-MMI-Mirror)，本次显示程序使用内嵌视频开屏。仓库中包含第三方文件，其原有授权不因仓库根目录的许可而改变。上游 MIB2 Toolbox 的 [MIT 许可](LICENSE.TOOLBOX-MIT)和镜像运行组件的[独立许可](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR)均须保留；使用或再分发时应分别遵守其条款。
 
 研究与实现参考项目：
 
@@ -188,8 +193,8 @@ Script not found:
 
 ~~~text
 main
-└── AUG22 / V2.1
-    └── 中国区实车验证完成
+└── AUG22 / V3.5 + 内嵌 Logo + 重连修复
+    └── QNX ARM 编译及主机测试通过，新增开屏与重连修复待实车验证
 ~~~
 
 当前公开版本以稳定、可安装、可恢复为优先目标；后续功能将分阶段更新。
