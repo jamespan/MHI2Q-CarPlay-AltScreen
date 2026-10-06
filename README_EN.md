@@ -204,4 +204,4 @@ The repository currently publishes the installable runtime package and related d
 
 ---
 
-Welcome to join the QQ group for feedback and discussion: 823297190
+Run into a problem or have a feature request? Join our QQ group for feedback and discussion: **823297190**
