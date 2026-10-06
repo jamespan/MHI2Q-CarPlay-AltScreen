@@ -54,6 +54,8 @@ This project is designed for the Audi **MHI2Q** platform and displays the **nati
 - Logs and SD-card backups
 - Core display path vehicle-validated on **China-region AUG22 firmware**
 - Classic / Sport dynamic layout adaptation
+- Global centering support
+- Zoom control via the left steering-wheel scroll wheel
 
 ## Not yet included in the current public release
 
