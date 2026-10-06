@@ -201,3 +201,7 @@ The current public release prioritizes stable installation, normal use, and reli
 The repository currently publishes the installable runtime package and related documentation. It does not mean that every feature from the complete development version has been released at once.
 
 > **Shared free of charge. Reselling is prohibited.**
+
+---
+
+Welcome to join the QQ group for feedback and discussion: 823297190
