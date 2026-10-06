@@ -199,6 +199,3 @@ The repository currently publishes the installable runtime package and related d
 
 > **Shared free of charge. Reselling is prohibited.**
 
----
-
-Run into a problem or have a feature request? Join our QQ group for feedback and discussion: **823297190**
