@@ -61,11 +61,6 @@ This project is designed for the Audi **MHI2Q** platform and displays the **nati
 
 These features will be added gradually to later public releases according to stability, compatibility, and cleanup progress. **Adaptation for the MHI2 platform and for US / ER or other regional firmware variants is currently outside the scope of this project.**
 
-### Planned for future releases:
-
-https://github.com/user-attachments/assets/53cfcd21-63ea-4e7b-a1f7-68f02353de05
-
----
 
 ### Installation and testing
 
