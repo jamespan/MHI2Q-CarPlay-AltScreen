@@ -59,9 +59,6 @@
 
 上述功能会根据稳定性、兼容性和整理进度，逐步更新到后续公开版本。**MHI2 平台以及 US / ER 等其他地区固件的适配目前不在本项目计划内。**
 
-### 未来将引入：
-
-https://github.com/user-attachments/assets/53cfcd21-63ea-4e7b-a1f7-68f02353de05
 
 ---
 
