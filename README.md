@@ -1,4 +1,4 @@
-# MIB2 Toolbox — CarPlay AltScreen V3.5
+# MIB2 Toolbox — CarPlay AltScreen V3.5Fix2
 
 [English](README_EN.md) | **简体中文**
 
@@ -185,7 +185,7 @@ Script not found:
 
 ~~~text
 main
-└── AUG22 / V3.5
+└── AUG22 / V3.5Fix2
     └── 中国区实车验证完成
 ~~~
 

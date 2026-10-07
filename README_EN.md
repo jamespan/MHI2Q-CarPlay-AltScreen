@@ -1,4 +1,4 @@
-# MIB2 Toolbox — CarPlay AltScreen V2.2
+# MIB2 Toolbox — CarPlay AltScreen V3.5Fix2
 
 **English** | [简体中文](README.md)
 
@@ -185,7 +185,7 @@ Current recommended version:
 
 ~~~text
 main
-└── AUG22 / V2.1
+└── AUG22 / V3.5Fix2
     └── Vehicle validated on China-region firmware
 ~~~
 
