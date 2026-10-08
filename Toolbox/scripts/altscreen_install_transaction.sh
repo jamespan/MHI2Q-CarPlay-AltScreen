@@ -423,6 +423,10 @@ verify_installed(){
     { log "INSTALL_VERIFY=FAIL reason=MIRROR_BINARY_MISSING"; return 1; }
   [ -x "$RUNTIME/bin/mirror/start_vehicle.sh" ] ||
     { log "INSTALL_VERIFY=FAIL reason=MIRROR_START_MISSING"; return 1; }
+  same "$VOLUME/Toolbox/carplay_alt_screen/mirror_display/release/rgi_supervisor.sh" "$RUNTIME/bin/mirror/rgi_supervisor.sh" ||
+    { log "INSTALL_VERIFY=FAIL reason=RGI_SUPERVISOR_MISMATCH"; return 1; }
+  [ -x "$RUNTIME/bin/mirror/rgi_supervisor.sh" ] ||
+    { log "INSTALL_VERIFY=FAIL reason=RGI_SUPERVISOR_NOT_EXECUTABLE"; return 1; }
   [ -f "$RUNTIME/state/diagnostics.enabled" ] ||
     { log "INSTALL_VERIFY=FAIL reason=PERSISTENT_DIAGNOSTICS_NOT_ENABLED"; return 1; }
 

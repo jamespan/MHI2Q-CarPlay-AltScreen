@@ -113,6 +113,8 @@ rgi_wait=0
 while [ ! -f "$DEVICE_ROOT/tmp/mmi-rgi.stopped" ] && [ "$rgi_wait" -lt 5 ]; do
     sleep 1; rgi_wait=$((rgi_wait + 1))
 done
+# Withdraw the supervisor before its runtime is removed, preventing respawn.
+[ ! -x "$MIRROR_STOP" ] || /bin/sh "$MIRROR_STOP" >/dev/null 2>&1 || true
 [ "${ALTSCREEN_CHAIN_TESTING:-0}" = 1 ] || slay maneuver_render >/dev/null 2>&1 || true
 # Stop the pixel sidecar first. It has no context writer in this branch.
 [ ! -x "$MIRROR_STOP" ] || /bin/sh "$MIRROR_STOP" >/dev/null 2>&1 || true

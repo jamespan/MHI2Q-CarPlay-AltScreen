@@ -125,8 +125,8 @@ JAR_SOURCE="$VOLUME/Toolbox/carplay_alt_screen/hmi/carplay_hook-basevideo3.jar"
 HMI_INFO="$VOLUME/Toolbox/carplay_alt_screen/hmi/BUILD_INFO.txt"
 JAR_TARGET="$DEVICE_ROOT/mnt/app/eso/hmi/lsd/jars/carplay_hook.jar"
 JAR_TARGET_DIR=$(dirname -- "$JAR_TARGET")
-EXPECTED_SIZE=184719
-EXPECTED_CKSUM=3839321978
+EXPECTED_SIZE=202376
+EXPECTED_CKSUM=582294825
 
 [ -f "$CONTROLLER" ] || { echo "FAIL: chain controller missing: $CONTROLLER"; exit 127; }
 [ -s "$JAR_SOURCE" ] || { echo "FAIL: Java80 HMI JAR missing: $JAR_SOURCE"; exit 1; }
