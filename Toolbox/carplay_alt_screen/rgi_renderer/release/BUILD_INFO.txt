@@ -1,0 +1,17 @@
+mode=RGI_CN_MERGED
+upstream=https://github.com/Lanye-z/mib2q-carplay-rgi-cn
+upstream_commit=4ad0c923a337386c82fb409b7622eefaba8bdcae
+native_amap_metadata=V38_PHYSICAL_HEAD_GENERATION_FRESHNESS
+displayable=98
+context=80
+context_owner=JAVA_ONLY
+tcp_port=19800
+renderer_fps=30
+startup=READY_FRAME_READY_THEN_JAVA_CONTEXT_REBIND
+frame_ready=SUCCESSFUL_EGL_SWAP_REQUIRED
+platform=MANAGED_SCREEN_NO_DMDT
+basevideo_coexistence=DISPLAYABLE3_PRESERVED
+native_route_handoff=CLEAR_OWNED_STATE_THEN_RESTORE_BAP_LISTENER
+native_signal_policy=PRESERVE_VEHICLE_LIFECYCLE_AND_FAULT_HANDLERS
+signal_logger_deadlock_fix=NO_LOGGING_FROM_SIGNAL_HANDLER
+vehicle_status=READY_FOR_VEHICLE_TEST

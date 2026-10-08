@@ -106,6 +106,14 @@ strip_blocks(){
     ' "$1"
 }
 
+# Stop RGI through its resident Java owner before removing its executable.
+rm -f "$DEVICE_ROOT/tmp/mmi-rgi.stopped" 2>/dev/null || true
+: > "$DEVICE_ROOT/tmp/mmi-rgi.disabled" || { echo "FAIL: cannot withdraw RGI"; exit 1; }
+rgi_wait=0
+while [ ! -f "$DEVICE_ROOT/tmp/mmi-rgi.stopped" ] && [ "$rgi_wait" -lt 5 ]; do
+    sleep 1; rgi_wait=$((rgi_wait + 1))
+done
+[ "${ALTSCREEN_CHAIN_TESTING:-0}" = 1 ] || slay maneuver_render >/dev/null 2>&1 || true
 # Stop the pixel sidecar first. It has no context writer in this branch.
 [ ! -x "$MIRROR_STOP" ] || /bin/sh "$MIRROR_STOP" >/dev/null 2>&1 || true
 # Release demand while the current Java controller is still resident. It will

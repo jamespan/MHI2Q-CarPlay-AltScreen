@@ -206,6 +206,7 @@ run_flat_plaintext() {
     flat_controller_offset=$(flat_read_cursor "${CURSOR_PREFIX}_controller.offset")
     flat_wheel_log_offset=$(flat_read_cursor "${CURSOR_PREFIX}_wheel-log.offset")
     flat_carplay_hook_offset=$(flat_read_cursor "${CURSOR_PREFIX}_carplay-hook.offset")
+    flat_rgi_offset=$(flat_read_cursor "${CURSOR_PREFIX}_rgi.offset")
     flat_oem_geometry_offset=$(flat_read_cursor "${CURSOR_PREFIX}_oem-geometry.offset")
     flat_oem_api_offset=$(flat_read_cursor "${CURSOR_PREFIX}_oem-api.offset")
     flat_wheel_events_sig=absent
@@ -220,6 +221,7 @@ run_flat_plaintext() {
         flat_controller_offset=$(flat_capture_delta "$(select_controller_log_source)" "$flat_controller_offset" "$FLAT_DEST/streams/mmi-mirror-controller.log" "${FLAT_PREFIX}_controller.chunk" "${CURSOR_PREFIX}_controller.offset")
         flat_wheel_log_offset=$(flat_capture_delta "$(select_wheel_log_source)" "$flat_wheel_log_offset" "$FLAT_DEST/streams/mmi-mirror-wheel-zoom.log" "${FLAT_PREFIX}_wheel_log.chunk" "${CURSOR_PREFIX}_wheel-log.offset")
         flat_carplay_hook_offset=$(flat_capture_delta "$(select_carplay_hook_log_source)" "$flat_carplay_hook_offset" "$FLAT_DEST/streams/carplay_hook.log" "${FLAT_PREFIX}_carplay_hook.chunk" "${CURSOR_PREFIX}_carplay-hook.offset")
+        flat_rgi_offset=$(flat_capture_delta "$ROOT/tmp/maneuver_render.log" "$flat_rgi_offset" "$FLAT_DEST/streams/maneuver_render.log" "${FLAT_PREFIX}_rgi.chunk" "${CURSOR_PREFIX}_rgi.offset")
         flat_oem_geometry_offset=$(flat_capture_delta "$(select_oem_geometry_history_source)" "$flat_oem_geometry_offset" "$FLAT_DEST/streams/carplay-oem-geometry.log" "${FLAT_PREFIX}_oem_geometry.chunk" "${CURSOR_PREFIX}_oem-geometry.offset")
         flat_oem_api_offset=$(flat_capture_delta "$(select_oem_displaymanager_api_source)" "$flat_oem_api_offset" "$FLAT_DEST/streams/carplay-oem-displaymanager-read-api.log" "${FLAT_PREFIX}_oem_api.chunk" "${CURSOR_PREFIX}_oem-api.offset")
         wheel_events_source=$(select_wheel_events_source)

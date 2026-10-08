@@ -145,8 +145,8 @@ RUNTIME="$DEVICE_ROOT/mnt/app/root/carplay-altscreen"
 STATE="$RUNTIME/state"
 ENABLED="$STATE/basevideo3.enabled"
 JAR="$DEVICE_ROOT/mnt/app/eso/hmi/lsd/jars/carplay_hook.jar"
-EXPECTED_SIZE=119017
-EXPECTED_CKSUM=1560286344
+EXPECTED_SIZE=184719
+EXPECTED_CKSUM=3839321978
 ACTIVE="$DEVICE_ROOT/tmp/mmi-mirror-active"
 READY="$DEVICE_ROOT/tmp/mmi-mirror-basevideo.ready"
 STARTED="$DEVICE_ROOT/tmp/mmi-mirror-controller.started"
@@ -499,6 +499,7 @@ else
 fi
 system_space_snapshot start_after_publish
 
+rm -f "$DEVICE_ROOT/tmp/mmi-rgi.disabled" "$DEVICE_ROOT/tmp/mmi-rgi.stopped" 2>/dev/null || fail "cannot enable RGI lifecycle"
 stage CURRENT_BOOT_DISPLAY_RESET
 rm -f "$READY" "$ACTIVE" 2>/dev/null || true
 READY_CLEARED=1
