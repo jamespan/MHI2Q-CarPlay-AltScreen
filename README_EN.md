@@ -1,10 +1,12 @@
-# MIB2 Toolbox — CarPlay AltScreen V3.7
+# MIB2 Toolbox — CarPlay AltScreen V3.7Fix1
 
 **English** | [简体中文](README.md)
 
 This project is designed for the Audi **MHI2Q** platform and displays the **native CarPlay AltScreen / secondary navigation view** directly on the vehicle's **Virtual Cockpit**. The core display path has been verified in a vehicle. Read this document in full before making changes to the head unit.
 
 **V3.7 update: full RGI navigation-data integration is now available (built on [Luka's mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi)), color conversion for the secondary display now runs on the GPU, cutting whole-system CPU usage from about 80% to about 20%, the runtime watermark has been removed, and starting with V3.7 the whole project is open source under GPL-3.0.**
+
+**V3.7Fix1 update: the green menu now offers two install modes, `INSTALL WITH RGI` and `INSTALL NO RGI`; fixes RGI arrows and distance progress not updating and state publishing failures; the cluster map no longer overlays the ETA.**
 
 > [!NOTE]
 > **Sister project: MMI Mirror**  
@@ -53,9 +55,11 @@ This project is designed for the Audi **MHI2Q** platform and displays the **nati
 - Full RGI navigation-data integration (built on [Luka's mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi))
   - Maneuver arrows and lane guidance on the cluster
   - Current road, remaining distance, and arrival time in the cluster's lower info bar
+  - Can be enabled or left out at install time (`INSTALL WITH RGI` / `INSTALL NO RGI`)
 - Classic / Sport dynamic layout adaptation
 - Global centering
 - Left steering-wheel scroll-wheel zoom
+- Cluster map shows the speed-limit sign and compass, without an ETA overlay
 - GPU color conversion: whole-system CPU usage cut from about 80% to about 20%
 - STATUS diagnostics
 - Safe installation and recovery
@@ -182,7 +186,7 @@ Starting with V3.7, all source code is in this repository:
 | `Toolbox/carplay_alt_screen/rgi_native/` | RGI preload hook: iAP2 RouteGuidance parsing and forwarding | `rgi_meta/libcarplay_rgi_meta.so` |
 | `Toolbox/carplay_alt_screen/rgi_renderer/` | Maneuver-arrow / lane-guidance renderer | `rgi_renderer/release/maneuver_render` |
 | `Toolbox/carplay_alt_screen/hmi/` | Java HMI hook: Context80, cluster layers, RGI distribution, wheel events; `stubs/` holds compile-only stock API stubs and `vendor/` the baseline JAR | `hmi/carplay_hook-basevideo3.jar` |
-| `Toolbox/scripts/` | Install / start / status / restore / diagnostic scripts | Used from the SD card; the green-menu file ships in the Releases package |
+| `Toolbox/scripts/`, `Toolbox/GEM/` | Install / start / status / restore / diagnostic scripts and the green menu | Used from the SD card |
 | `Tools/`, `BUILD-*.sh` | Build and verification tools | — |
 
 Building requires the QNX 6.5.0 SDP ARM cross toolchain (`arm-unknown-nto-qnx6.5.0eabi-gcc`):
@@ -278,7 +282,11 @@ the **upstream Toolbox base installation is still broken**. Do not continue with
 In the `MMI-Cockpit-Carplay` menu, follow this order and let each action finish before continuing:
 
 1. **Disconnect the iPhone / CarPlay** so navigation video is not playing during installation.
-2. Select `INSTALL`. Wait until it finishes. After `INSTALL=PASS` and `reboot_required=YES`, **fully reboot the head unit**. If it reports `FAIL`, record the message and stop.
+2. Select one install mode and wait until it finishes. After `INSTALL=PASS` and `reboot_required=YES`, **fully reboot the head unit**. If it reports `FAIL`, record the message and stop.
+   - `INSTALL WITH RGI` (recommended): secondary-display map + full RGI (maneuver arrows, lane guidance, lower info bar).
+   - `INSTALL NO RGI`: secondary-display map only, without the RGI components; useful if you only want the map or are troubleshooting RGI.
+
+   `START` keeps the mode chosen at install time, and `STATUS` shows it as `INSTALL_RGI_MODE=WITH / NO`. To switch modes, it is safest to run `RESTORE ORIGINAL` first, then install again with the other mode. Below, `INSTALL` refers to either install entry.
 3. After reboot, select `START`. Wait for `START=PASS` and `reboot_required=YES`, then **fully reboot the head unit again**. If it fails, do not skip ahead to connecting the phone.
 4. After the second reboot, connect the iPhone, enter CarPlay, and start navigation. Check whether the Virtual Cockpit shows the secondary display and updates with navigation.
 
@@ -314,7 +322,7 @@ Upgrading requires **restoring first, then installing**. Do not run `INSTALL` di
 1. Disconnect the iPhone / CarPlay and insert the SD card that retains the `MMI-Cockpit-Carplay` stock-backup directory.
 2. In the existing `MMI-Cockpit-Carplay` menu on the head unit, run `RESTORE ORIGINAL`. Wait for `RESTORE=PASS` and `reboot_required=YES`, then fully reboot the head unit. If the restore fails, stop the upgrade, keep the backup card, and record the message.
 3. After a successful restore, merge the new overlay into the SD card as described in section 2, and delete the leftover `logo.rgba` and `watermark.rgba` from the old version. Keep the `MMI-Cockpit-Carplay` directory on the card intact.
-4. Run `Update Toolbox` as described in section 3, then follow section 4: `INSTALL` → full reboot → `START` → full reboot.
+4. Run `Update Toolbox` as described in section 3, then follow section 4: `INSTALL WITH RGI` or `INSTALL NO RGI` → full reboot → `START` → full reboot.
 
 Changing head-unit system files can cause a blank screen or require recovery.
 
@@ -356,12 +364,26 @@ Current recommended version:
 
 ~~~text
 main
-└── AUG22 / V3.7
+└── AUG22 / V3.7Fix1
     ├── China-region (CN) firmware: vehicle-tested and working
     └── Other regional firmware: may have unknown bugs; not guaranteed to work 100%
 ~~~
 
 The current public release prioritizes stable installation, normal use, and reliable recovery.
+
+### Changelog
+
+**V3.7Fix1**
+
+- The green menu now offers `INSTALL WITH RGI` / `INSTALL NO RGI`; `START` keeps the chosen mode, and a failed install rolls back automatically.
+- Fixed maneuver arrows and distance progress not updating when the maneuver list is valid but `maneuverCount` is 0; a missing junction type now falls back to the maneuver type.
+- Fixed state publishing failing when a cross-filesystem rename in QNX `/tmp` shared memory fails; the Java side now rejects incomplete state snapshots.
+- `INSTALL`, `START`, and `STATUS` now verify the HMI JAR against `BUILD_INFO`, so an updated JAR is no longer rejected by stale hard-coded checksums.
+- The cluster map ETA overlay is turned off; the speed-limit sign, compass, 30 fps secondary display, GPU color conversion, startup video, and 350 / 1000 m arrow rules are kept.
+
+**V3.7**
+
+- Full RGI navigation-data integration; GPU color conversion for the secondary display; runtime watermark removed; all source code open under GPL-3.0.
 
 ---
 
