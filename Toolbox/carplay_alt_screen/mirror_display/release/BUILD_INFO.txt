@@ -136,7 +136,7 @@ nv12_cpu_color_conversion=DISABLED
 nv12_upload_bytes_per_pixel=1.5
 nv12_cpu_rgba_buffer=NONE
 nv12_gpu_host_pixel_validation=PASS
-nv12_gpu_vehicle_validation=PENDING
+nv12_gpu_vehicle_validation=PASS
 
 rgi_runtime=ALLEMON_1289981_CITY350_LONGSTEP1000
 rgi_lifecycle=SUPERVISED_WITH_STREAM_SUPERVISOR
