@@ -45,6 +45,8 @@ This project is designed for the Audi **MHI2Q** platform and displays the **nati
 - Native CarPlay AltScreen
 - The main CarPlay display remains available and unaffected
 - Full RGI navigation-data integration (built on [Luka's mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi))
+  - Maneuver arrows and lane guidance on the cluster
+  - Current road, remaining distance, and arrival time in the cluster's lower info bar
 - Classic / Sport dynamic layout adaptation
 - Global centering
 - Left steering-wheel scroll-wheel zoom
@@ -65,9 +67,55 @@ This project is designed for the Audi **MHI2Q** platform and displays the **nati
 
 ---
 
-## How it works
+## How it works and architecture
 
-This project no longer relies on the early Window58 readback route. It connects directly to CarPlay's **private type111** secondary-display video stream: the stock AirPlay / OMX decoding path is kept, frames are safely read from the stock renderer and linearized into standard NV12, handed to a separate display process, and finally shown on the cluster through GLES / displayable3 / Java Context80.
+This project no longer relies on the early Window58 readback route. It connects directly to CarPlay's **private type111** secondary-display video stream: the stock AirPlay / OMX decoding path is kept, frames are safely read from the stock renderer and linearized into standard NV12, handed to a separate display process, and finally shown on the cluster through GLES / displayable3 / Java Context80. Full RGI receives navigation data through iAP2 RouteGuidance, and the Java HMI distributes it to the cluster's lower info bar and to a separate maneuver renderer.
+
+### Architecture diagram
+
+```mermaid
+flowchart TB
+    iPhone["iPhone CarPlay"]
+
+    subgraph DIO["dio_manager"]
+        OMX["Stock OMX decoder + renderer"]
+        ALT["libcarplay_altscreen.so<br/>secondary display · viewArea<br/>wheel zoom → changeMapZoomLevel"]
+        RGIM["libcarplay_rgi_meta.so<br/>iAP2 RouteGuidance"]
+    end
+
+    SHM[("/carplay111_decoded<br/>NV12 shared memory")]
+
+    subgraph HMI["Java HMI"]
+        BUS["CarplayBus<br/>TCP 19810"]
+        RG["RouteGuidance"]
+        BAP["BAPBridge / LowerBarKomo"]
+        RS["RendererServer<br/>TCP 19800"]
+        CSC["ClusterStateController<br/>Context80"]
+        WZ["WheelZoomBridge"]
+    end
+
+    subgraph SIDE["Sidecars"]
+        MIR["carplay-alt111-mirror-display<br/>secondary display · startup logo"]
+        MR["maneuver_render<br/>maneuver arrows · lane guidance"]
+    end
+
+    VC["Virtual Cockpit"]
+
+    iPhone -- "type111 secondary video" --> OMX
+    iPhone -- "iAP2 navigation data" --> RGIM
+    ALT -. "safe frame readback" .-> OMX
+    OMX --> SHM --> MIR
+    RGIM -- "TCP" --> BUS --> RG
+    RG --> BAP
+    RG --> RS -- "TCP" --> MR
+    WZ -- "wheel event queue" --> ALT
+    MIR -- "displayable3 · map" --> VC
+    MR -- "displayable 98 · arrows" --> VC
+    BAP -- "road / distance / arrival" --> VC
+    CSC -- "switches Context80" --> VC
+```
+
+### Secondary-display path
 
 ```text
 iPhone CarPlay
@@ -78,7 +126,7 @@ Stock AirPlay / OMX decoding
   ↓
 QNX Screen readback + linearization → standard NV12 (/carplay111_decoded)
   ↓
-Separate display process (sidecar)
+Separate display process (carplay-alt111-mirror-display)
   ↓
 GLES / displayable3 (1440×542 source shown 1:1 on the 1440×455 cluster plane)
   ↓
@@ -91,6 +139,42 @@ Virtual Cockpit
 - No extra decoder is introduced; the stock decoding path that already works on MHI2Q is reused to keep new variables to a minimum.
 - The FULL / SMALL view areas switch dynamically within the same CarPlay session through the standard `updateViewArea`; the Classic / Sport layout follows the head unit's HMI state.
 - Java/HMI is the only owner of Context80; the display process does not change the cluster Context directly.
+
+### RGI navigation-data path
+
+- `libcarplay_rgi_meta.so` receives iAP2 RouteGuidance data inside the stock CarPlay process and passes it to the Java HMI over local TCP port 19810.
+- The Java HMI writes the current road, remaining distance, and arrival time into the cluster's lower info bar, and hands the bar back to the stock display when there is no valid CarPlay data.
+- Maneuver arrows and lane guidance are sent over local TCP port 19800 to the separate `maneuver_render` process, which draws them on displayable 98. The process is supervised by `rgi_supervisor.sh` and restarted a limited number of times if it exits unexpectedly.
+
+### Steering-wheel zoom
+
+The Java HMI captures the left steering-wheel scroll events and writes them to an event queue. `libcarplay_altscreen.so` steps toward the target zoom level by sending standard `changeMapZoomLevel` requests to the iPhone, pacing them by fresh secondary-display frames.
+
+---
+
+## Source layout and building
+
+Starting with V3.7, all source code is in this repository:
+
+| Path | Contents | Output |
+|---|---|---|
+| `Toolbox/carplay_alt_screen/src/` | Preload hook for the stock CarPlay process: private111 secondary display, frame readback, viewArea, wheel zoom | `universal/libcarplay_altscreen.so` |
+| `Toolbox/carplay_alt_screen/mirror_display/` | Secondary-display process (C++ / GLES / displayable3) with the embedded startup logo | `mirror_display/release/carplay-alt111-mirror-display` |
+| `Toolbox/carplay_alt_screen/rgi_native/` | RGI preload hook: iAP2 RouteGuidance parsing and forwarding | `rgi_meta/libcarplay_rgi_meta.so` |
+| `Toolbox/carplay_alt_screen/rgi_renderer/` | Maneuver-arrow / lane-guidance renderer | `rgi_renderer/release/maneuver_render` |
+| `Toolbox/carplay_alt_screen/hmi/` | Java HMI hook: Context80, cluster layers, RGI distribution, wheel events; `stubs/` holds compile-only stock API stubs and `vendor/` the baseline JAR | `hmi/carplay_hook-basevideo3.jar` |
+| `Toolbox/scripts/`, `Toolbox/GEM/` | Install / start / status / restore / diagnostic scripts and the green menu | Used from the SD card |
+| `Tools/`, `BUILD-*.sh` | Build and verification tools | — |
+
+Building requires the QNX 6.5.0 SDP ARM cross toolchain (`arm-unknown-nto-qnx6.5.0eabi-gcc`):
+
+```sh
+sh BUILD-UNIVERSAL-QNX.sh      # secondary-display hook → libcarplay_altscreen.so
+sh BUILD-MIRROR-QNX.sh         # secondary-display process → carplay-alt111-mirror-display
+bash Tools/build_rgi_qnx.sh    # RGI hook + renderer → libcarplay_rgi_meta.so, maneuver_render
+```
+
+Build output goes to `dev-build/` or `mirror_display/build/` (not tracked in git) and does not overwrite the vehicle files in `release/`. When you replace vehicle files, also update the matching `BUILD_INFO.txt`, `SHA256SUMS`, and the root `SHA256SUMS-SD.txt`.
 
 ---
 
@@ -194,6 +278,7 @@ In the `MMI-Cockpit-Carplay` menu, follow this order and let each action finish 
 ### 6. Logs
 
 - Runtime logs are kept on the head unit in `/tmp/MMI-Cockpit-Carplay/`. They cover private111 connect / teardown, H.264, Screen readback, decoded SHM, display frame rate, displayable3, Context80, view-area and layout state, and system diagnostics such as CPU, temperature, and memory.
+- The RGI renderer logs to `/tmp/maneuver_render.log`.
 - After `STORE LOGS + RESTORE`, logs are saved to the `MMI-Cockpit-Carplay/logs/` directory on the SD card.
 - When something goes wrong, save the complete logs before changing any configuration or code. When reporting an issue, attach the logs and include the firmware version and region, the Classic / Sport and FULL / SMALL layout, and how the phone was connected (phone plugged in before the head unit started / after it fully started / quick reconnect).
 
@@ -221,7 +306,7 @@ See [SD_CARD_README.txt](SD_CARD_README.txt) for the notes shipped on the SD car
 **V3.7 is fully open source, and everyone is welcome to help maintain the project, fix issues, and add new features.**
 
 - Report problems through Issues, with complete logs, the firmware version and region, the layout, and how the phone was connected.
-- Submit fixes and new features through Pull Requests. Vehicle test results on US / ER and other regional firmware are also welcome and help widen the validated scope.
+- Submit fixes and new features through Pull Requests; see "Source layout and building" above for how to build. Vehicle test results on US / ER and other regional firmware are also welcome and help widen the validated scope.
 - In a pull request, describe the test vehicle, firmware version, test steps, and results.
 - Change one layer at a time: do not introduce a new decoder, a new Context, and broad display-structure changes in the same change, or it becomes hard to tell which layer caused a problem.
 - Vehicle tests should cover cold start (phone plugged in before the head unit started / after it fully started / quick reconnect) and the four Classic / Sport × FULL / SMALL layouts, and confirm that `RESTORE ORIGINAL` still restores correctly.
@@ -237,17 +322,18 @@ The GPL-3.0 allows anyone to use, study, modify, and redistribute this project, 
 
 | Part | Origin | License |
 |---|---|---|
-| AltScreen display path, HMI JAR, install / restore / diagnostic scripts, green menu, documentation, etc. | Original to this project | GPL-3.0 |
-| Full RGI navigation-data integration, including `Toolbox/carplay_alt_screen/rgi_meta/` and its source | Built on [Luka's mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi) | GPL-3.0 |
+| Secondary-display path (`src/`, `mirror_display/`), install / restore / diagnostic scripts, green menu, documentation, etc. | Original to this project | GPL-3.0 |
+| Java HMI and full RGI (`hmi/`, `rgi_native/`, `rgi_renderer/`) | Built on [Luka's mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi); renderer merged from [Allemon/mib2-carplay-rgi-altscreen](https://github.com/Allemon/mib2-carplay-rgi-altscreen) | GPL-3.0 |
 | Upstream MIB2 Toolbox files | [jilleb/mib2-toolbox](https://github.com/jilleb/mib2-toolbox) | [MIT](LICENSE.TOOLBOX-MIT), GPL-3.0 compatible |
 | Mirror runtime component | [Lanye-z's MMI Mirror](https://github.com/Lanye-z/MHI2Q-CarPlay-MMI-Mirror) | [Unlicense](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR), GPL-3.0 compatible |
 
-Keep the original license notices of third-party files.
+Other third-party files shipped with the source (such as `stb_image.h` and the Unicode data file) keep their own licenses. Keep the original license notices of third-party files.
 
 Research and implementation references:
 
 - [LIVI](https://github.com/f-io/LIVI): research reference for CarPlay main-display and instrument-cluster secondary-display protocol behavior.
 - [mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi) (Luka): foundation of the full RGI navigation-data integration, and reference for MHI2Q CarPlay navigation guidance, HMI, and instrument-cluster interaction.
+- [mib2-carplay-rgi-altscreen](https://github.com/Allemon/mib2-carplay-rgi-altscreen) (Allemon): upstream implementation of the RGI maneuver renderer.
 - [MIB2 High Toolbox](https://github.com/jilleb/mib2-toolbox): upstream project for the SD-card toolchain, engineering menu, and scripts.
 
 ---
