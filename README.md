@@ -4,7 +4,7 @@
 
 本项目面向 Audi **MHI2Q** 平台，用于将 **CarPlay 原生 AltScreen / 第二屏导航画面**直接显示至车辆的 **Virtual Cockpit**。核心显示链路已完成实车验证。操作前请先阅读 [SD 卡说明](SD_CARD_README.txt)。
 
-**V3.7 更新：完整 RGI 导航信息联动上线（基于 [Luka 的 mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi) 构建）；运行水印已移除；V3.7 全部源码开源。**
+**V3.7 更新：完整 RGI 导航信息联动上线（基于 [Luka 的 mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi) 构建）；运行水印已移除；V3.7 起全部以 GPL-3.0 开源。**
 
 > [!NOTE]
 > **姊妹项目：MMI Mirror**  
@@ -16,15 +16,15 @@
 >
 > 考虑到此前免费测试成果曾被未经允许包装和倒卖，本项目早期版本只公开了运行包，并分阶段发布功能。**自 V3.7 起，本项目全部开源**：全部功能与源码均已在本仓库公开。
 >
-> 开源不代表可以商用：除 RGI 部分按 GPL 发布外，其余源码和二进制均采用非商业许可，**禁止任何形式的商用和售卖**，详见文末「许可、作者与第三方文件」。
+> 本项目整体采用 **[GNU GPL v3.0](LICENSE)** 许可：任何人都可以使用、修改和再分发；再分发二进制或修改版时，必须以 GPL-3.0 同时提供完整源码。详见文末「许可、作者与第三方文件」。
 >
 > 当前版本并非演示代码，现有 CarPlay AltScreen 第二屏功能已经可以正常实车使用。
 >
 > 本项目最初就是基于我们自己的车辆和日常使用需求进行开发。**中国区（CN）AUG22 固件已经过实车测试，可以正常使用。** US / ER 等其他地区的 AUG22 固件可能存在未知 BUG，**不保证 100% 可用**，请自行评估风险并保留好原车备份。本项目不支持 MHI2 平台；请不要绕过安装脚本的固件检查强制安装。
 >
-> **免费分享，禁止倒卖。**
+> **免费分享。** 本项目的源码和安装包都可以在 GitHub 上免费获取，请不要花钱购买。
 >
-> 可以学习、研究和交流，但请不要把免费的测试与开发成果重新包装后用于牟利。
+> 欢迎学习、研究和交流。如果有人向你提供本项目或其修改版，你有权按 GPL-3.0 向对方索取完整源码。
 
 > [!IMPORTANT]
 > 本项目会修改车机系统文件。安装、启动或恢复过程中请保持 SD 卡连接和车机供电稳定。  
@@ -183,16 +183,18 @@ SD 卡随附说明见 [SD_CARD_README.txt](SD_CARD_README.txt)。车机修改有
 
 ## 许可、作者与第三方文件
 
-本项目由 [yuedizhibo](https://github.com/yuedizhibo) 和 [Lanye-z](https://github.com/Lanye-z) 共同开发。**V3.7 全部开源**：本仓库公开全部 C/C++ 源码、运行二进制、安装脚本和说明。不同部分按以下许可分类发布：
+本项目由 [yuedizhibo](https://github.com/yuedizhibo) 和 [Lanye-z](https://github.com/Lanye-z) 共同开发。**V3.7 全部开源**：本仓库公开全部 C/C++ 源码、运行二进制、安装脚本和说明，整个项目采用 **[GNU General Public License v3.0](LICENSE)**（GPL-3.0）发布。
 
-| 部分 | 许可 | 能否商用 / 售卖 |
+GPL-3.0 允许任何人使用、研究、修改和再分发本项目，包括商业用途；再分发二进制或修改版时，必须以 GPL-3.0 同时提供完整对应源码，并保留原有版权与许可声明。
+
+| 部分 | 来源 | 许可 |
 |---|---|---|
-| **RGI 部分**：完整 RGI 导航信息联动，基于 [Luka 的 mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi) 构建，包括 `Toolbox/carplay_alt_screen/rgi_meta/` 及其源码 | **GNU GPL**，版本与上游 mib2q-carplay-rgi 保持一致 | 按 GPL 条款允许；再分发（包括售卖）时必须同时提供完整源码，修改版也必须以 GPL 发布 |
-| **其余部分**：AltScreen 显示链路、HMI JAR、安装 / 恢复 / 诊断脚本、绿色菜单、说明文档等原创内容 | [PolyForm Noncommercial 1.0.0](LICENSE) | **不允许任何形式的商业使用或售卖**；如需商业授权，须另行取得相关权利人的书面许可 |
-| 上游 MIB2 Toolbox 相关文件 | [MIT](LICENSE.TOOLBOX-MIT) | 按 MIT 条款 |
-| 镜像运行组件 | [独立许可](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR) | 按其条款 |
+| AltScreen 显示链路、HMI JAR、安装 / 恢复 / 诊断脚本、绿色菜单、说明文档等 | 本项目原创 | GPL-3.0 |
+| 完整 RGI 导航信息联动，包括 `Toolbox/carplay_alt_screen/rgi_meta/` 及其源码 | 基于 [Luka 的 mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi) 构建 | GPL-3.0 |
+| 上游 MIB2 Toolbox 相关文件 | [jilleb/mib2-toolbox](https://github.com/jilleb/mib2-toolbox) | [MIT](LICENSE.TOOLBOX-MIT)，与 GPL-3.0 兼容 |
+| 镜像运行组件 | [Lanye-z 的 MMI Mirror](https://github.com/Lanye-z/MHI2Q-CarPlay-MMI-Mirror) | [Unlicense](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR)，与 GPL-3.0 兼容 |
 
-PolyForm Noncommercial 允许非商业使用、修改和分发，但由于限制商用，不属于 OSI 定义的开源许可；这里的“开源”指源码全部公开。仓库根目录的 PolyForm 许可仅适用于相应权利人有权按该许可发布的原创部分，不改变 RGI 部分及其他第三方文件的原有授权。使用或再分发时，请按上表分别遵守对应条款。
+第三方文件的原有授权声明须一并保留。
 
 研究与实现参考项目：
 
@@ -219,6 +221,6 @@ main
 
 ## 公开发布说明
 
-自 V3.7 起，本项目全部开源：全部功能、源码、可安装运行包与相关说明均已公开。RGI 部分按 GPL 发布；其余源码与二进制均不允许商用或售卖。
+自 V3.7 起，本项目全部开源：全部功能、源码、可安装运行包与相关说明均已公开，并统一以 GPL-3.0 发布。
 
-> **免费分享，禁止倒卖。**
+> **免费分享：本项目在 GitHub 上免费提供，请勿花钱购买。**

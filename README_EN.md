@@ -4,7 +4,7 @@
 
 This project is designed for the Audi **MHI2Q** platform and displays the **native CarPlay AltScreen / secondary navigation view** directly on the vehicle's **Virtual Cockpit**. The core display path has been verified in a vehicle. Read the [SD card instructions](SD_CARD_README.txt) before making changes to the head unit.
 
-**V3.7 update: full RGI navigation-data integration is now available (built on [Luka's mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi)), the runtime watermark has been removed, and V3.7 is fully open source.**
+**V3.7 update: full RGI navigation-data integration is now available (built on [Luka's mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi)), the runtime watermark has been removed, and starting with V3.7 the whole project is open source under GPL-3.0.**
 
 > [!NOTE]
 > **Sister project: MMI Mirror**  
@@ -16,15 +16,15 @@ This project is designed for the Audi **MHI2Q** platform and displays the **nati
 >
 > Because freely shared test builds were previously repackaged and resold without permission, earlier versions of this project published only the runtime package and released features in stages. **Starting with V3.7, the project is fully open source**: every feature and all source code are published in this repository.
 >
-> Open source does not mean commercial use is allowed. Except for the RGI part, which is released under the GPL, the source and binaries use a non-commercial license, and **commercial use or sale in any form is prohibited**. See "Licensing, authors, and third-party files" below.
+> The whole project is licensed under the **[GNU GPL v3.0](LICENSE)**: anyone may use, modify, and redistribute it, and anyone who redistributes binaries or modified versions must also provide the complete source under GPL-3.0. See "Licensing, authors, and third-party files" below.
 >
 > This is not a demonstration build. The current CarPlay AltScreen functionality is already usable in a real vehicle.
 >
 > This project was originally developed around our own vehicles and day-to-day use cases. **China-region (CN) AUG22 firmware has been tested in a vehicle and works normally.** AUG22 firmware for US / ER and other regions may have unknown bugs and is **not guaranteed to work 100%**; assess the risk yourself and keep your stock backup. The MHI2 platform is not supported. Do not bypass the installer's firmware checks to force installation.
 >
-> **Shared free of charge. Reselling is prohibited.**
+> **Shared free of charge.** The source and installation packages are available for free on GitHub; do not pay for them.
 >
-> You are welcome to learn from, study, and discuss the project, but please do not repackage free testing and development work for profit.
+> You are welcome to learn from, study, and discuss the project. If someone provides you with this project or a modified version of it, the GPL-3.0 entitles you to request the complete source from them.
 
 > [!IMPORTANT]
 > This project modifies system files on the head unit. Keep the SD card inserted and maintain stable power during installation, start, or recovery operations.  
@@ -183,16 +183,18 @@ See [SD_CARD_README.txt](SD_CARD_README.txt) for the notes shipped on the SD car
 
 ## Licensing, authors, and third-party files
 
-This project is developed by [yuedizhibo](https://github.com/yuedizhibo) and [Lanye-z](https://github.com/Lanye-z). **V3.7 is fully open source**: this repository publishes all C/C++ source code, runtime binaries, installation scripts, and documentation. Each part is published under the following license:
+This project is developed by [yuedizhibo](https://github.com/yuedizhibo) and [Lanye-z](https://github.com/Lanye-z). **V3.7 is fully open source**: this repository publishes all C/C++ source code, runtime binaries, installation scripts, and documentation, and the whole project is released under the **[GNU General Public License v3.0](LICENSE)** (GPL-3.0).
 
-| Part | License | Commercial use / sale |
+The GPL-3.0 allows anyone to use, study, modify, and redistribute this project, including for commercial purposes. Anyone who redistributes binaries or modified versions must provide the complete corresponding source under GPL-3.0 and keep the existing copyright and license notices.
+
+| Part | Origin | License |
 |---|---|---|
-| **RGI part**: full RGI navigation-data integration, built on [Luka's mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi), including `Toolbox/carplay_alt_screen/rgi_meta/` and its source | **GNU GPL**, same version as upstream mib2q-carplay-rgi | Allowed under the GPL; any redistribution (including sale) must include the complete source, and modified versions must also be released under the GPL |
-| **Everything else**: original material such as the AltScreen display path, HMI JAR, install / restore / diagnostic scripts, green menu, and documentation | [PolyForm Noncommercial 1.0.0](LICENSE) | **Commercial use or sale in any form is not permitted**; any commercial license requires separate written permission from the relevant rights holders |
-| Upstream MIB2 Toolbox files | [MIT](LICENSE.TOOLBOX-MIT) | Under the MIT terms |
-| Mirror runtime component | [Separate license](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR) | Under its terms |
+| AltScreen display path, HMI JAR, install / restore / diagnostic scripts, green menu, documentation, etc. | Original to this project | GPL-3.0 |
+| Full RGI navigation-data integration, including `Toolbox/carplay_alt_screen/rgi_meta/` and its source | Built on [Luka's mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi) | GPL-3.0 |
+| Upstream MIB2 Toolbox files | [jilleb/mib2-toolbox](https://github.com/jilleb/mib2-toolbox) | [MIT](LICENSE.TOOLBOX-MIT), GPL-3.0 compatible |
+| Mirror runtime component | [Lanye-z's MMI Mirror](https://github.com/Lanye-z/MHI2Q-CarPlay-MMI-Mirror) | [Unlicense](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR), GPL-3.0 compatible |
 
-PolyForm Noncommercial permits non-commercial use, modification, and redistribution, but because commercial use is restricted it is not an open-source license under the OSI definition; here, "open source" means the complete source is public. The repository-root PolyForm license applies only to original material that the relevant rights holders are entitled to publish under those terms, and does not change the licenses of the RGI part or other third-party files. Follow the applicable terms in the table above when using or redistributing each part.
+Keep the original license notices of third-party files.
 
 Research and implementation references:
 
@@ -219,6 +221,6 @@ The current public release prioritizes stable installation, normal use, and reli
 
 ## Public-release notice
 
-Starting with V3.7, the project is fully open source: every feature, all source code, the installable runtime package, and related documentation are public. The RGI part is released under the GPL; the rest of the source and binaries may not be used commercially or sold.
+Starting with V3.7, the project is fully open source: every feature, all source code, the installable runtime package, and related documentation are public and released under GPL-3.0.
 
-> **Shared free of charge. Reselling is prohibited.**
+> **Shared free of charge: this project is available for free on GitHub; do not pay for it.**
