@@ -1,10 +1,12 @@
-# MIB2 Toolbox — CarPlay AltScreen V3.7
+# MIB2 Toolbox — CarPlay AltScreen V3.7Fix1
 
 [English](README_EN.md) | **简体中文**
 
 本项目面向 Audi **MHI2Q** 平台，用于将 **CarPlay 原生 AltScreen / 第二屏导航画面**直接显示至车辆的 **Virtual Cockpit**。核心显示链路已完成实车验证。操作前请完整阅读本说明。
 
 **V3.7 更新：完整 RGI 导航信息联动上线（基于 [Luka 的 mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi) 构建）；第二屏颜色转换改由 GPU 完成，整机 CPU 占用率从约 80% 降至约 20%；运行水印已移除；V3.7 起全部以 GPL-3.0 开源。**
+
+**V3.7Fix1 更新：绿色菜单新增 `INSTALL WITH RGI` / `INSTALL NO RGI` 两种安装模式；修复 RGI 箭头与距离进度不更新、状态发布失败等问题；仪表地图画面不再叠加 ETA。**
 
 > [!NOTE]
 > **姊妹项目：MMI Mirror**  
@@ -53,9 +55,11 @@
 - 完整 RGI 导航信息联动（基于 [Luka 的 mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi) 构建）
   - 仪表转向箭头与车道引导
   - 当前道路、剩余距离、到达时间同步到仪表底部信息栏
+  - 可在安装时选择是否启用（`INSTALL WITH RGI` / `INSTALL NO RGI`）
 - Classic / Sport 动态布局适配
 - 全域居中
 - 方向盘左侧滚轮缩放
+- 仪表地图显示限速牌和指南针，不叠加 ETA
 - GPU 颜色转换：整机 CPU 占用率从约 80% 降至约 20%
 - STATUS 状态诊断
 - 安全安装与恢复
@@ -182,7 +186,7 @@ V3.7 起全部源码都在本仓库中：
 | `Toolbox/carplay_alt_screen/rgi_native/` | RGI 预加载 hook：iAP2 RouteGuidance 解析与转发 | `rgi_meta/libcarplay_rgi_meta.so` |
 | `Toolbox/carplay_alt_screen/rgi_renderer/` | 转向箭头 / 车道引导渲染器 | `rgi_renderer/release/maneuver_render` |
 | `Toolbox/carplay_alt_screen/hmi/` | Java HMI hook：Context80、仪表图层、RGI 分发、滚轮事件；`stubs/` 为编译用原车接口桩，`vendor/` 为基线 JAR | `hmi/carplay_hook-basevideo3.jar` |
-| `Toolbox/scripts/` | 安装 / 启动 / 状态 / 恢复 / 诊断脚本 | 随 SD 卡使用；绿色菜单文件随 Releases 安装包提供 |
+| `Toolbox/scripts/`、`Toolbox/GEM/` | 安装 / 启动 / 状态 / 恢复 / 诊断脚本与绿色菜单 | 随 SD 卡使用 |
 | `Tools/`、`BUILD-*.sh` | 构建与校验工具 | — |
 
 构建需要 QNX 6.5.0 SDP 的 ARM 交叉工具链（`arm-unknown-nto-qnx6.5.0eabi-gcc`）：
@@ -278,7 +282,11 @@ Script not found:
 在 `MMI-Cockpit-Carplay` 菜单中按以下顺序操作，每步完成后再进行下一步：
 
 1. **断开 iPhone / CarPlay**，避免安装过程中正在输出导航视频。
-2. 选择 `INSTALL`。等待执行结束；看到 `INSTALL=PASS` 且提示 `reboot_required=YES` 后，**完整重启车机**。若出现 `FAIL`，先记录提示并停止后续步骤。
+2. 选择一种安装模式，等待执行结束；看到 `INSTALL=PASS` 且提示 `reboot_required=YES` 后，**完整重启车机**。若出现 `FAIL`，先记录提示并停止后续步骤。
+   - `INSTALL WITH RGI`（推荐）：第二屏地图 + 完整 RGI（转向箭头、车道引导、底部信息栏）。
+   - `INSTALL NO RGI`：只显示第二屏地图，不启用 RGI 相关组件；适合只需要地图或排查 RGI 问题时使用。
+
+   `START` 会沿用安装时选择的模式，`STATUS` 中的 `INSTALL_RGI_MODE=WITH / NO` 显示当前模式。要切换模式，建议先执行 `RESTORE ORIGINAL`，再用另一种模式重新安装。下文提到的 `INSTALL` 均指这两个安装项之一。
 3. 重启完成后选择 `START`。等待 `START=PASS` 和 `reboot_required=YES`，然后**再次完整重启车机**。若失败，不要直接跳到连接手机。
 4. 第二次重启后连接 iPhone、进入 CarPlay 并启动导航。观察 Virtual Cockpit 是否出现第二屏画面且能随导航更新。
 
@@ -314,7 +322,7 @@ Script not found:
 1. 断开 iPhone / CarPlay，插入保留了 `MMI-Cockpit-Carplay` 原车备份目录的 SD 卡。
 2. 在车机上现有的 `MMI-Cockpit-Carplay` 菜单中执行 `RESTORE ORIGINAL`，等待 `RESTORE=PASS` 和 `reboot_required=YES`，然后完整重启车机。若复原失败，停止升级，保留备份卡并记录提示。
 3. 复原成功后，按第 2 节把新版覆盖包合并到 SD 卡，并删除旧版遗留的 `logo.rgba` 和 `watermark.rgba`。卡上的 `MMI-Cockpit-Carplay` 目录必须完整保留。
-4. 按第 3 节执行 `Update Toolbox`，再按第 4 节执行 `INSTALL` → 完整重启 → `START` → 完整重启。
+4. 按第 3 节执行 `Update Toolbox`，再按第 4 节执行 `INSTALL WITH RGI` 或 `INSTALL NO RGI` → 完整重启 → `START` → 完整重启。
 
 车机修改有黑屏或需要恢复的风险。
 
@@ -356,12 +364,26 @@ GPL-3.0 允许任何人使用、研究、修改和再分发本项目，包括商
 
 ~~~text
 main
-└── AUG22 / V3.7
+└── AUG22 / V3.7Fix1
     ├── 中国区（CN）固件：实车测试可用
     └── 其他地区固件：可能存在未知 BUG，不保证 100% 可用
 ~~~
 
 当前公开版本以稳定、可安装、可恢复为优先目标。
+
+### 更新记录
+
+**V3.7Fix1**
+
+- 绿色菜单新增 `INSTALL WITH RGI` / `INSTALL NO RGI` 两种安装模式；`START` 沿用安装时的选择，安装失败会自动回滚。
+- 修复导航动作列表有效但 `maneuverCount` 为 0 时，转向箭头和距离进度不更新的问题；缺少路口类型时按动作类型回退。
+- 修复 QNX `/tmp` 共享内存跨文件系统重命名失败导致的状态发布问题，Java 端会拒绝不完整的状态快照。
+- `INSTALL`、`START`、`STATUS` 改为按 `BUILD_INFO` 校验 HMI JAR，更新 JAR 后不再被旧的校验值拒绝。
+- 仪表地图关闭 ETA 显示；保留限速牌、指南针、第二屏 30fps、GPU 颜色转换、开屏视频和 350 / 1000 米箭头规则。
+
+**V3.7**
+
+- 完整 RGI 导航信息联动上线；第二屏颜色转换改由 GPU 完成；移除运行水印；全部源码以 GPL-3.0 开源。
 
 ---
 
