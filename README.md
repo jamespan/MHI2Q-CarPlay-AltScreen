@@ -4,7 +4,7 @@
 
 本项目面向 Audi **MHI2Q** 平台，用于将 **CarPlay 原生 AltScreen / 第二屏导航画面**直接显示至车辆的 **Virtual Cockpit**。核心显示链路已完成实车验证。操作前请完整阅读本说明。
 
-**V3.7 更新：完整 RGI 导航信息联动上线（基于 [Luka 的 mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi) 构建）；运行水印已移除；V3.7 起全部以 GPL-3.0 开源。**
+**V3.7 更新：完整 RGI 导航信息联动上线（基于 [Luka 的 mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi) 构建）；第二屏颜色转换改由 GPU 完成，整机 CPU 占用率从约 80% 降至约 20%；运行水印已移除；V3.7 起全部以 GPL-3.0 开源。**
 
 > [!NOTE]
 > **姊妹项目：MMI Mirror**  
@@ -50,6 +50,7 @@
 - Classic / Sport 动态布局适配
 - 全域居中
 - 方向盘左侧滚轮缩放
+- GPU 颜色转换：整机 CPU 占用率从约 80% 降至约 20%
 - STATUS 状态诊断
 - 安全安装与恢复
 - 安装 / 恢复中断保护
@@ -95,7 +96,7 @@ flowchart TB
     end
 
     subgraph SIDE["独立进程"]
-        MIR["carplay-alt111-mirror-display<br/>第二屏显示 · 开屏 Logo"]
+        MIR["carplay-alt111-mirror-display<br/>第二屏显示 · GPU 颜色转换 · 开屏 Logo"]
         MR["maneuver_render<br/>转向箭头 · 车道引导"]
     end
 
@@ -128,6 +129,8 @@ QNX Screen 读取 + 线性化 → 标准 NV12（/carplay111_decoded）
   ↓
 独立显示进程（carplay-alt111-mirror-display）
   ↓
+GPU 着色器完成 NV12 → RGBA 颜色转换
+  ↓
 GLES / displayable3（1440×542 源画面 1:1 输出到 1440×455 仪表平面）
   ↓
 Java/HMI Context80
@@ -139,6 +142,12 @@ Virtual Cockpit
 - 不引入额外解码器，继续复用 MHI2Q 上已经稳定工作的原车解码流程，减少新变量。
 - FULL / SMALL 两个 viewArea 通过标准 `updateViewArea` 在同一 CarPlay 会话中动态切换；Classic / Sport 布局跟随车机 HMI 状态。
 - Java/HMI 是 Context80 的唯一控制方，显示进程不直接修改仪表 Context。
+
+### 性能优化：GPU 颜色转换
+
+早期版本中，解码后的 NV12 画面由显示进程在 CPU 上逐帧转换为 RGBA，再上传给 GPU 显示，车机负载较大。V3.7 把 NV12 → RGBA 颜色转换移到 GPU：显示进程把 Y 平面和 UV 平面分别作为纹理上传，由 GLES 片段着色器完成颜色转换，CPU 不再逐像素处理，也不再分配 RGBA 中间缓冲。
+
+实车测试中，**整机 CPU 占用率从约 80% 降至约 20%**。
 
 ### RGI 导航信息链路
 
@@ -159,7 +168,7 @@ V3.7 起全部源码都在本仓库中：
 | 路径 | 内容 | 产物 |
 |---|---|---|
 | `Toolbox/carplay_alt_screen/src/` | 原车 CarPlay 进程的预加载 hook：private111 第二屏接入、画面读取、viewArea、滚轮缩放 | `universal/libcarplay_altscreen.so` |
-| `Toolbox/carplay_alt_screen/mirror_display/` | 第二屏显示进程（C++ / GLES / displayable3），内嵌开屏 Logo | `mirror_display/release/carplay-alt111-mirror-display` |
+| `Toolbox/carplay_alt_screen/mirror_display/` | 第二屏显示进程（C++ / GLES / displayable3），GPU 完成颜色转换，内嵌开屏 Logo | `mirror_display/release/carplay-alt111-mirror-display` |
 | `Toolbox/carplay_alt_screen/rgi_native/` | RGI 预加载 hook：iAP2 RouteGuidance 解析与转发 | `rgi_meta/libcarplay_rgi_meta.so` |
 | `Toolbox/carplay_alt_screen/rgi_renderer/` | 转向箭头 / 车道引导渲染器 | `rgi_renderer/release/maneuver_render` |
 | `Toolbox/carplay_alt_screen/hmi/` | Java HMI hook：Context80、仪表图层、RGI 分发、滚轮事件；`stubs/` 为编译用原车接口桩，`vendor/` 为基线 JAR | `hmi/carplay_hook-basevideo3.jar` |

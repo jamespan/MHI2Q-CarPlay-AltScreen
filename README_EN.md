@@ -4,7 +4,7 @@
 
 This project is designed for the Audi **MHI2Q** platform and displays the **native CarPlay AltScreen / secondary navigation view** directly on the vehicle's **Virtual Cockpit**. The core display path has been verified in a vehicle. Read this document in full before making changes to the head unit.
 
-**V3.7 update: full RGI navigation-data integration is now available (built on [Luka's mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi)), the runtime watermark has been removed, and starting with V3.7 the whole project is open source under GPL-3.0.**
+**V3.7 update: full RGI navigation-data integration is now available (built on [Luka's mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi)), color conversion for the secondary display now runs on the GPU, cutting whole-system CPU usage from about 80% to about 20%, the runtime watermark has been removed, and starting with V3.7 the whole project is open source under GPL-3.0.**
 
 > [!NOTE]
 > **Sister project: MMI Mirror**  
@@ -50,6 +50,7 @@ This project is designed for the Audi **MHI2Q** platform and displays the **nati
 - Classic / Sport dynamic layout adaptation
 - Global centering
 - Left steering-wheel scroll-wheel zoom
+- GPU color conversion: whole-system CPU usage cut from about 80% to about 20%
 - STATUS diagnostics
 - Safe installation and recovery
 - Protection against interrupted installation / recovery
@@ -95,7 +96,7 @@ flowchart TB
     end
 
     subgraph SIDE["Sidecars"]
-        MIR["carplay-alt111-mirror-display<br/>secondary display · startup logo"]
+        MIR["carplay-alt111-mirror-display<br/>secondary display · GPU color conversion · startup logo"]
         MR["maneuver_render<br/>maneuver arrows · lane guidance"]
     end
 
@@ -128,6 +129,8 @@ QNX Screen readback + linearization → standard NV12 (/carplay111_decoded)
   ↓
 Separate display process (carplay-alt111-mirror-display)
   ↓
+GPU shader converts NV12 → RGBA
+  ↓
 GLES / displayable3 (1440×542 source shown 1:1 on the 1440×455 cluster plane)
   ↓
 Java/HMI Context80
@@ -139,6 +142,12 @@ Virtual Cockpit
 - No extra decoder is introduced; the stock decoding path that already works on MHI2Q is reused to keep new variables to a minimum.
 - The FULL / SMALL view areas switch dynamically within the same CarPlay session through the standard `updateViewArea`; the Classic / Sport layout follows the head unit's HMI state.
 - Java/HMI is the only owner of Context80; the display process does not change the cluster Context directly.
+
+### Performance: GPU color conversion
+
+In earlier versions, the display process converted each decoded NV12 frame to RGBA on the CPU before uploading it to the GPU, which put a heavy load on the head unit. V3.7 moves the NV12 → RGBA color conversion to the GPU: the display process uploads the Y and UV planes as separate textures and a GLES fragment shader does the conversion, so the CPU no longer touches every pixel and no intermediate RGBA buffer is allocated.
+
+In vehicle testing, **whole-system CPU usage dropped from about 80% to about 20%**.
 
 ### RGI navigation-data path
 
@@ -159,7 +168,7 @@ Starting with V3.7, all source code is in this repository:
 | Path | Contents | Output |
 |---|---|---|
 | `Toolbox/carplay_alt_screen/src/` | Preload hook for the stock CarPlay process: private111 secondary display, frame readback, viewArea, wheel zoom | `universal/libcarplay_altscreen.so` |
-| `Toolbox/carplay_alt_screen/mirror_display/` | Secondary-display process (C++ / GLES / displayable3) with the embedded startup logo | `mirror_display/release/carplay-alt111-mirror-display` |
+| `Toolbox/carplay_alt_screen/mirror_display/` | Secondary-display process (C++ / GLES / displayable3) with GPU color conversion and the embedded startup logo | `mirror_display/release/carplay-alt111-mirror-display` |
 | `Toolbox/carplay_alt_screen/rgi_native/` | RGI preload hook: iAP2 RouteGuidance parsing and forwarding | `rgi_meta/libcarplay_rgi_meta.so` |
 | `Toolbox/carplay_alt_screen/rgi_renderer/` | Maneuver-arrow / lane-guidance renderer | `rgi_renderer/release/maneuver_render` |
 | `Toolbox/carplay_alt_screen/hmi/` | Java HMI hook: Context80, cluster layers, RGI distribution, wheel events; `stubs/` holds compile-only stock API stubs and `vendor/` the baseline JAR | `hmi/carplay_hook-basevideo3.jar` |
