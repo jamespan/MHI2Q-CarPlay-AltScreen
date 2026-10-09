@@ -16,7 +16,7 @@
 >
 > 考虑到此前免费测试成果曾被未经允许包装和倒卖，本项目早期版本只公开了运行包，并分阶段发布功能。**自 V3.7 起，本项目全部开源**：全部功能与源码均已在本仓库公开。
 >
-> 开源不代表可以商用：源码和二进制均采用非商业许可，**禁止任何形式的商用和售卖**，详见文末「许可、作者与第三方文件」。
+> 开源不代表可以商用：除 RGI 部分按 GPL 发布外，其余源码和二进制均采用非商业许可，**禁止任何形式的商用和售卖**，详见文末「许可、作者与第三方文件」。
 >
 > 当前版本并非演示代码，现有 CarPlay AltScreen 第二屏功能已经可以正常实车使用。
 >
@@ -183,11 +183,16 @@ SD 卡随附说明见 [SD_CARD_README.txt](SD_CARD_README.txt)。车机修改有
 
 ## 许可、作者与第三方文件
 
-本项目由 [yuedizhibo](https://github.com/yuedizhibo) 和 [Lanye-z](https://github.com/Lanye-z) 共同开发。仓库根目录的 [PolyForm Noncommercial 1.0.0 许可](LICENSE)仅适用于相应权利人有权按该许可发布的原创部分：允许非商业使用、修改和分发；**不允许任何形式的商业使用或售卖**，如需商业授权须另行取得相关权利人的书面许可。由于限制商用，该许可不属于 OSI 定义的开源许可。
+本项目由 [yuedizhibo](https://github.com/yuedizhibo) 和 [Lanye-z](https://github.com/Lanye-z) 共同开发。**V3.7 全部开源**：本仓库公开全部 C/C++ 源码、运行二进制、安装脚本和说明。不同部分按以下许可分类发布：
 
-**V3.7 全部开源**：本仓库公开全部 C/C++ 源码、运行二进制、安装脚本和说明。这里的“开源”指源码全部公开，许可仍为上述非商业许可；源码与二进制均不允许用于商业用途或售卖。
+| 部分 | 许可 | 能否商用 / 售卖 |
+|---|---|---|
+| **RGI 部分**：完整 RGI 导航信息联动，基于 [Luka 的 mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi) 构建，包括 `Toolbox/carplay_alt_screen/rgi_meta/` 及其源码 | **GNU GPL**，版本与上游 mib2q-carplay-rgi 保持一致 | 按 GPL 条款允许；再分发（包括售卖）时必须同时提供完整源码，修改版也必须以 GPL 发布 |
+| **其余部分**：AltScreen 显示链路、HMI JAR、安装 / 恢复 / 诊断脚本、绿色菜单、说明文档等原创内容 | [PolyForm Noncommercial 1.0.0](LICENSE) | **不允许任何形式的商业使用或售卖**；如需商业授权，须另行取得相关权利人的书面许可 |
+| 上游 MIB2 Toolbox 相关文件 | [MIT](LICENSE.TOOLBOX-MIT) | 按 MIT 条款 |
+| 镜像运行组件 | [独立许可](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR) | 按其条款 |
 
-仓库中包含第三方文件，其原有授权不因仓库根目录的许可而改变。完整 RGI 功能基于 [Luka 的 mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi) 构建，相关部分须同时遵守该项目的原有许可。上游 MIB2 Toolbox 的 [MIT 许可](LICENSE.TOOLBOX-MIT)和镜像运行组件的[独立许可](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR)均须保留；使用或再分发时应分别遵守其条款。
+PolyForm Noncommercial 允许非商业使用、修改和分发，但由于限制商用，不属于 OSI 定义的开源许可；这里的“开源”指源码全部公开。仓库根目录的 PolyForm 许可仅适用于相应权利人有权按该许可发布的原创部分，不改变 RGI 部分及其他第三方文件的原有授权。使用或再分发时，请按上表分别遵守对应条款。
 
 研究与实现参考项目：
 
@@ -214,6 +219,6 @@ main
 
 ## 公开发布说明
 
-自 V3.7 起，本项目全部开源：全部功能、源码、可安装运行包与相关说明均已公开。源码与二进制均不允许商用或售卖。
+自 V3.7 起，本项目全部开源：全部功能、源码、可安装运行包与相关说明均已公开。RGI 部分按 GPL 发布；其余源码与二进制均不允许商用或售卖。
 
 > **免费分享，禁止倒卖。**

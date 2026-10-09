@@ -16,7 +16,7 @@ This project is designed for the Audi **MHI2Q** platform and displays the **nati
 >
 > Because freely shared test builds were previously repackaged and resold without permission, earlier versions of this project published only the runtime package and released features in stages. **Starting with V3.7, the project is fully open source**: every feature and all source code are published in this repository.
 >
-> Open source does not mean commercial use is allowed. Both the source and the binaries use a non-commercial license, and **commercial use or sale in any form is prohibited**. See "Licensing, authors, and third-party files" below.
+> Open source does not mean commercial use is allowed. Except for the RGI part, which is released under the GPL, the source and binaries use a non-commercial license, and **commercial use or sale in any form is prohibited**. See "Licensing, authors, and third-party files" below.
 >
 > This is not a demonstration build. The current CarPlay AltScreen functionality is already usable in a real vehicle.
 >
@@ -183,11 +183,16 @@ See [SD_CARD_README.txt](SD_CARD_README.txt) for the notes shipped on the SD car
 
 ## Licensing, authors, and third-party files
 
-This project is developed by [yuedizhibo](https://github.com/yuedizhibo) and [Lanye-z](https://github.com/Lanye-z). The repository-root [PolyForm Noncommercial 1.0.0 license](LICENSE) applies only to original material that the relevant rights holders are entitled to publish under those terms: non-commercial use, modification, and redistribution are permitted; **commercial use or sale in any form is not permitted**, and any commercial license requires separate written permission from the relevant rights holders. Because commercial use is restricted, the license is not open source under the OSI definition.
+This project is developed by [yuedizhibo](https://github.com/yuedizhibo) and [Lanye-z](https://github.com/Lanye-z). **V3.7 is fully open source**: this repository publishes all C/C++ source code, runtime binaries, installation scripts, and documentation. Each part is published under the following license:
 
-**V3.7 is fully open source**: this repository publishes all C/C++ source code, runtime binaries, installation scripts, and documentation. Here, "open source" means the complete source is public; the license remains the non-commercial license above, and neither the source nor the binaries may be used commercially or sold.
+| Part | License | Commercial use / sale |
+|---|---|---|
+| **RGI part**: full RGI navigation-data integration, built on [Luka's mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi), including `Toolbox/carplay_alt_screen/rgi_meta/` and its source | **GNU GPL**, same version as upstream mib2q-carplay-rgi | Allowed under the GPL; any redistribution (including sale) must include the complete source, and modified versions must also be released under the GPL |
+| **Everything else**: original material such as the AltScreen display path, HMI JAR, install / restore / diagnostic scripts, green menu, and documentation | [PolyForm Noncommercial 1.0.0](LICENSE) | **Commercial use or sale in any form is not permitted**; any commercial license requires separate written permission from the relevant rights holders |
+| Upstream MIB2 Toolbox files | [MIT](LICENSE.TOOLBOX-MIT) | Under the MIT terms |
+| Mirror runtime component | [Separate license](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR) | Under its terms |
 
-Third-party files retain their existing licenses. The full RGI feature is built on [Luka's mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi); the related parts must also follow that project's original license. Preserve the upstream MIB2 Toolbox [MIT license](LICENSE.TOOLBOX-MIT) and the mirror runtime's [separate license](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR), and follow each set of terms when using or redistributing them.
+PolyForm Noncommercial permits non-commercial use, modification, and redistribution, but because commercial use is restricted it is not an open-source license under the OSI definition; here, "open source" means the complete source is public. The repository-root PolyForm license applies only to original material that the relevant rights holders are entitled to publish under those terms, and does not change the licenses of the RGI part or other third-party files. Follow the applicable terms in the table above when using or redistributing each part.
 
 Research and implementation references:
 
@@ -214,6 +219,6 @@ The current public release prioritizes stable installation, normal use, and reli
 
 ## Public-release notice
 
-Starting with V3.7, the project is fully open source: every feature, all source code, the installable runtime package, and related documentation are public. Neither the source nor the binaries may be used commercially or sold.
+Starting with V3.7, the project is fully open source: every feature, all source code, the installable runtime package, and related documentation are public. The RGI part is released under the GPL; the rest of the source and binaries may not be used commercially or sold.
 
 > **Shared free of charge. Reselling is prohibited.**
