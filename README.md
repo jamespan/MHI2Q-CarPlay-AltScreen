@@ -2,7 +2,7 @@
 
 [English](README_EN.md) | **简体中文**
 
-本项目面向 Audi **MHI2Q** 平台，用于将 **CarPlay 原生 AltScreen / 第二屏导航画面**直接显示至车辆的 **Virtual Cockpit**。核心显示链路已完成实车验证。操作前请先阅读 [SD 卡说明](SD_CARD_README.txt)。
+本项目面向 Audi **MHI2Q** 平台，用于将 **CarPlay 原生 AltScreen / 第二屏导航画面**直接显示至车辆的 **Virtual Cockpit**。核心显示链路已完成实车验证。操作前请完整阅读本说明。
 
 **V3.7 更新：完整 RGI 导航信息联动上线（基于 [Luka 的 mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi) 构建）；运行水印已移除；V3.7 起全部以 GPL-3.0 开源。**
 
@@ -163,7 +163,7 @@ V3.7 起全部源码都在本仓库中：
 | `Toolbox/carplay_alt_screen/rgi_native/` | RGI 预加载 hook：iAP2 RouteGuidance 解析与转发 | `rgi_meta/libcarplay_rgi_meta.so` |
 | `Toolbox/carplay_alt_screen/rgi_renderer/` | 转向箭头 / 车道引导渲染器 | `rgi_renderer/release/maneuver_render` |
 | `Toolbox/carplay_alt_screen/hmi/` | Java HMI hook：Context80、仪表图层、RGI 分发、滚轮事件；`stubs/` 为编译用原车接口桩，`vendor/` 为基线 JAR | `hmi/carplay_hook-basevideo3.jar` |
-| `Toolbox/scripts/`、`Toolbox/GEM/` | 安装 / 启动 / 状态 / 恢复 / 诊断脚本与绿色菜单 | 随 SD 卡使用 |
+| `Toolbox/scripts/` | 安装 / 启动 / 状态 / 恢复 / 诊断脚本 | 随 SD 卡使用；绿色菜单文件随 Releases 安装包提供 |
 | `Tools/`、`BUILD-*.sh` | 构建与校验工具 | — |
 
 构建需要 QNX 6.5.0 SDP 的 ARM 交叉工具链（`arm-unknown-nto-qnx6.5.0eabi-gcc`）：
@@ -206,7 +206,7 @@ bash Tools/build_rgi_qnx.sh    # RGI hook + 渲染器 → libcarplay_rgi_meta.so
    - 上游独有文件：全部保留；
    - 从本项目旧版升级时（先按第 8 节完成复原），删除卡上 `Toolbox/carplay_alt_screen/mirror_display/release/` 内旧版的 `logo.rgba` 和 `watermark.rgba`；新版不再使用它们；
    - **不要清空后再复制，也不要把本项目当成一张独立的红菜单安装卡。**
-3. 也可以同时复制 `SD_CARD_README.txt` 和 `SHA256SUMS-SD.txt` 到卡根目录。若更换 SD 卡，务必同时完整保留 `MMI-Cockpit-Carplay` 原车备份目录。
+3. 安装包根目录的 `SHA256SUMS-SD.txt` 也一并复制到卡根目录，用于下一步校验。若更换 SD 卡，务必同时完整保留 `MMI-Cockpit-Carplay` 原车备份目录。
 4. 正确结构应类似：
 
 ```text
@@ -221,7 +221,6 @@ SD 卡根目录/
 │  │  ├─ update_toolbox.sh       ← 上游 Toolbox 保留
 │  │  └─ ...AltScreen scripts... ← 本项目
 │  └─ carplay_alt_screen/        ← 本项目 payload
-├─ SD_CARD_README.txt
 └─ SHA256SUMS-SD.txt
 ```
 
@@ -297,7 +296,7 @@ Script not found:
 3. 复原成功后，按第 2 节把新版覆盖包合并到 SD 卡，并删除旧版遗留的 `logo.rgba` 和 `watermark.rgba`。卡上的 `MMI-Cockpit-Carplay` 目录必须完整保留。
 4. 按第 3 节执行 `Update Toolbox`，再按第 4 节执行 `INSTALL` → 完整重启 → `START` → 完整重启。
 
-SD 卡随附说明见 [SD_CARD_README.txt](SD_CARD_README.txt)。车机修改有黑屏或需要恢复的风险。
+车机修改有黑屏或需要恢复的风险。
 
 ---
 
@@ -329,13 +328,6 @@ GPL-3.0 允许任何人使用、研究、修改和再分发本项目，包括商
 
 源码中随附的其他第三方文件（如 `stb_image.h`、Unicode 数据文件）保留各自原有许可，第三方文件的原有授权声明须一并保留。
 
-研究与实现参考项目：
-
-- [LIVI](https://github.com/f-io/LIVI)：CarPlay 主屏与仪表第二屏协议行为的研究参考。
-- [mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi)（Luka）：完整 RGI 导航信息联动的构建基础，以及 MHI2Q 的 CarPlay 导航引导、HMI 与仪表交互参考。
-- [mib2-carplay-rgi-altscreen](https://github.com/Allemon/mib2-carplay-rgi-altscreen)（Allemon）：RGI 转向箭头渲染器的上游实现。
-- [MIB2 High Toolbox](https://github.com/jilleb/mib2-toolbox)：SD 卡工具链、工程菜单及脚本的上游项目。
-
 ---
 
 ## 版本状态
@@ -358,3 +350,15 @@ main
 自 V3.7 起，本项目全部开源：全部功能、源码、可安装运行包与相关说明均已公开，并统一以 GPL-3.0 发布。
 
 > **免费分享：本项目在 GitHub 上免费提供，请勿花钱购买。**
+
+---
+
+## 鸣谢
+
+感谢以下项目和作者，本项目在他们的工作基础上完成：
+
+- [Luka](https://github.com/luka-dev) 的 [mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi)：完整 RGI 导航信息联动与 Java HMI 的构建基础，以及 MHI2Q 的 CarPlay 导航引导、HMI 与仪表交互参考。
+- [Allemon](https://github.com/Allemon) 的 [mib2-carplay-rgi-altscreen](https://github.com/Allemon/mib2-carplay-rgi-altscreen)：RGI 转向箭头渲染器的上游实现。
+- [LIVI](https://github.com/f-io/LIVI)：CarPlay 主屏与仪表第二屏协议行为的研究参考。
+- [jilleb](https://github.com/jilleb) 的 [MIB2 High Toolbox](https://github.com/jilleb/mib2-toolbox)：SD 卡工具链、工程菜单及脚本的上游项目。
+- 所有参与实车测试、反馈问题和提交日志的朋友。

@@ -10,7 +10,6 @@
 !/README_EN.md
 !/LICENSE
 !/LICENSE.TOOLBOX-MIT
-!/SD_CARD_README.txt
 !/SHA256SUMS-SD.txt
 
 # Current universal hook and its QNX compatibility headers.
@@ -62,7 +61,6 @@
 
 # Exact SD runtime closure. Some installer/diagnostic filenames contain "test";
 # those are vehicle runtime scripts and must not be removed by a blanket test rule.
-!/Toolbox/GEM/mqb-carplayAltScreen.esd
 !/Toolbox/carplay_alt_screen/hmi/BUILD_INFO.txt
 !/Toolbox/carplay_alt_screen/hmi/carplay_hook-basevideo3.jar
 !/Toolbox/carplay_alt_screen/mirror_display/release/BUILD_INFO.txt

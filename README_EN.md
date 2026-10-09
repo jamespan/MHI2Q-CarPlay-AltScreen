@@ -2,7 +2,7 @@
 
 **English** | [简体中文](README.md)
 
-This project is designed for the Audi **MHI2Q** platform and displays the **native CarPlay AltScreen / secondary navigation view** directly on the vehicle's **Virtual Cockpit**. The core display path has been verified in a vehicle. Read the [SD card instructions](SD_CARD_README.txt) before making changes to the head unit.
+This project is designed for the Audi **MHI2Q** platform and displays the **native CarPlay AltScreen / secondary navigation view** directly on the vehicle's **Virtual Cockpit**. The core display path has been verified in a vehicle. Read this document in full before making changes to the head unit.
 
 **V3.7 update: full RGI navigation-data integration is now available (built on [Luka's mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi)), the runtime watermark has been removed, and starting with V3.7 the whole project is open source under GPL-3.0.**
 
@@ -163,7 +163,7 @@ Starting with V3.7, all source code is in this repository:
 | `Toolbox/carplay_alt_screen/rgi_native/` | RGI preload hook: iAP2 RouteGuidance parsing and forwarding | `rgi_meta/libcarplay_rgi_meta.so` |
 | `Toolbox/carplay_alt_screen/rgi_renderer/` | Maneuver-arrow / lane-guidance renderer | `rgi_renderer/release/maneuver_render` |
 | `Toolbox/carplay_alt_screen/hmi/` | Java HMI hook: Context80, cluster layers, RGI distribution, wheel events; `stubs/` holds compile-only stock API stubs and `vendor/` the baseline JAR | `hmi/carplay_hook-basevideo3.jar` |
-| `Toolbox/scripts/`, `Toolbox/GEM/` | Install / start / status / restore / diagnostic scripts and the green menu | Used from the SD card |
+| `Toolbox/scripts/` | Install / start / status / restore / diagnostic scripts | Used from the SD card; the green-menu file ships in the Releases package |
 | `Tools/`, `BUILD-*.sh` | Build and verification tools | — |
 
 Building requires the QNX 6.5.0 SDP ARM cross toolchain (`arm-unknown-nto-qnx6.5.0eabi-gcc`):
@@ -206,7 +206,7 @@ Build output goes to `dev-build/` or `mirror_display/build/` (not tracked in git
    - Keep all upstream-only files.
    - When upgrading from an older project build (after completing the restore in section 8), delete the old `logo.rgba` and `watermark.rgba` from `Toolbox/carplay_alt_screen/mirror_display/release/` on the card; the new binary does not use them.
    - **Do not wipe the upstream Toolbox first, and do not treat this repository as a standalone red-menu update package.**
-3. You may also copy `SD_CARD_README.txt` and `SHA256SUMS-SD.txt` to the SD-card root. If changing cards, also preserve the complete `MMI-Cockpit-Carplay` stock-backup directory.
+3. Also copy `SHA256SUMS-SD.txt` from the package root to the SD-card root for the check in the next step. If changing cards, also preserve the complete `MMI-Cockpit-Carplay` stock-backup directory.
 4. The resulting layout should look like:
 
 ```text
@@ -221,7 +221,6 @@ SD card root/
 │  │  ├─ update_toolbox.sh        ← keep from upstream Toolbox
 │  │  └─ ...AltScreen scripts...  ← this project
 │  └─ carplay_alt_screen/         ← this project payload
-├─ SD_CARD_README.txt
 └─ SHA256SUMS-SD.txt
 ```
 
@@ -297,7 +296,7 @@ Upgrading requires **restoring first, then installing**. Do not run `INSTALL` di
 3. After a successful restore, merge the new overlay into the SD card as described in section 2, and delete the leftover `logo.rgba` and `watermark.rgba` from the old version. Keep the `MMI-Cockpit-Carplay` directory on the card intact.
 4. Run `Update Toolbox` as described in section 3, then follow section 4: `INSTALL` → full reboot → `START` → full reboot.
 
-See [SD_CARD_README.txt](SD_CARD_README.txt) for the notes shipped on the SD card. Changing head-unit system files can cause a blank screen or require recovery.
+Changing head-unit system files can cause a blank screen or require recovery.
 
 ---
 
@@ -329,13 +328,6 @@ The GPL-3.0 allows anyone to use, study, modify, and redistribute this project, 
 
 Other third-party files shipped with the source (such as `stb_image.h` and the Unicode data file) keep their own licenses. Keep the original license notices of third-party files.
 
-Research and implementation references:
-
-- [LIVI](https://github.com/f-io/LIVI): research reference for CarPlay main-display and instrument-cluster secondary-display protocol behavior.
-- [mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi) (Luka): foundation of the full RGI navigation-data integration, and reference for MHI2Q CarPlay navigation guidance, HMI, and instrument-cluster interaction.
-- [mib2-carplay-rgi-altscreen](https://github.com/Allemon/mib2-carplay-rgi-altscreen) (Allemon): upstream implementation of the RGI maneuver renderer.
-- [MIB2 High Toolbox](https://github.com/jilleb/mib2-toolbox): upstream project for the SD-card toolchain, engineering menu, and scripts.
-
 ---
 
 ## Version status
@@ -358,3 +350,15 @@ The current public release prioritizes stable installation, normal use, and reli
 Starting with V3.7, the project is fully open source: every feature, all source code, the installable runtime package, and related documentation are public and released under GPL-3.0.
 
 > **Shared free of charge: this project is available for free on GitHub; do not pay for it.**
+
+---
+
+## Acknowledgements
+
+Thanks to the following projects and authors, whose work this project builds on:
+
+- [Luka](https://github.com/luka-dev)'s [mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi): the foundation of the full RGI navigation-data integration and the Java HMI, and reference for MHI2Q CarPlay navigation guidance, HMI, and instrument-cluster interaction.
+- [Allemon](https://github.com/Allemon)'s [mib2-carplay-rgi-altscreen](https://github.com/Allemon/mib2-carplay-rgi-altscreen): upstream implementation of the RGI maneuver renderer.
+- [LIVI](https://github.com/f-io/LIVI): research reference for CarPlay main-display and instrument-cluster secondary-display protocol behavior.
+- [jilleb](https://github.com/jilleb)'s [MIB2 High Toolbox](https://github.com/jilleb/mib2-toolbox): upstream project for the SD-card toolchain, engineering menu, and scripts.
+- Everyone who tested in a vehicle, reported issues, and shared logs.
