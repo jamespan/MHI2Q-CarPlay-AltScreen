@@ -65,6 +65,35 @@ This project is designed for the Audi **MHI2Q** platform and displays the **nati
 
 ---
 
+## How it works
+
+This project no longer relies on the early Window58 readback route. It connects directly to CarPlay's **private type111** secondary-display video stream: the stock AirPlay / OMX decoding path is kept, frames are safely read from the stock renderer and linearized into standard NV12, handed to a separate display process, and finally shown on the cluster through GLES / displayable3 / Java Context80.
+
+```text
+iPhone CarPlay
+  ↓
+private type111 secondary-display video stream
+  ↓
+Stock AirPlay / OMX decoding
+  ↓
+QNX Screen readback + linearization → standard NV12 (/carplay111_decoded)
+  ↓
+Separate display process (sidecar)
+  ↓
+GLES / displayable3 (1440×542 source shown 1:1 on the 1440×455 cluster plane)
+  ↓
+Java/HMI Context80
+  ↓
+Virtual Cockpit
+```
+
+- The main CarPlay display (Main110) stays on the stock path and is not part of this display path.
+- No extra decoder is introduced; the stock decoding path that already works on MHI2Q is reused to keep new variables to a minimum.
+- The FULL / SMALL view areas switch dynamically within the same CarPlay session through the standard `updateViewArea`; the Classic / Sport layout follows the head unit's HMI state.
+- Java/HMI is the only owner of Context80; the display process does not change the cluster Context directly.
+
+---
+
 ## Installation and testing
 
 > [!IMPORTANT]
@@ -74,7 +103,7 @@ This project is designed for the Audi **MHI2Q** platform and displays the **nati
 > - **This project itself cannot be installed directly through the red software-update menu.**
 > - After the upstream Toolbox is working, load this project through **`MQBCoding → Update Toolbox`** in the green menu.
 > - If `Update Toolbox` reports `Script not found` or `/eso/hmi/engdefs/scripts/mqb/update_toolbox.sh` is missing, repair/reinstall the upstream Toolbox first.
-> - **When upgrading from an older version of this project, you must restore first and then install.** Follow section 7; do not run `INSTALL` directly over an older version.
+> - **When upgrading from an older version of this project, you must restore first and then install.** Follow section 8; do not run `INSTALL` directly over an older version.
 
 ### 1. Confirm that the upstream MIB2 Toolbox works
 
@@ -91,7 +120,7 @@ This project is designed for the Audi **MHI2Q** platform and displays the **nati
 2. Download the package from this repository's [Releases](https://github.com/yuedizhibo/MHI2Q-CarPlay-AltScreen/releases) page and extract it. These are compiled vehicle overlay files; **you do not need to copy source code or build directories**. Merge the package's **`Toolbox/` directory into the existing `Toolbox/` directory on the SD card**:
    - Replace same-name files with this project's versions.
    - Keep all upstream-only files.
-   - When upgrading from an older project build (after completing the restore in section 7), delete the old `logo.rgba` and `watermark.rgba` from `Toolbox/carplay_alt_screen/mirror_display/release/` on the card; the new binary does not use them.
+   - When upgrading from an older project build (after completing the restore in section 8), delete the old `logo.rgba` and `watermark.rgba` from `Toolbox/carplay_alt_screen/mirror_display/release/` on the card; the new binary does not use them.
    - **Do not wipe the upstream Toolbox first, and do not treat this repository as a standalone red-menu update package.**
 3. You may also copy `SD_CARD_README.txt` and `SHA256SUMS-SD.txt` to the SD-card root. If changing cards, also preserve the complete `MMI-Cockpit-Carplay` stock-backup directory.
 4. The resulting layout should look like:
@@ -162,13 +191,19 @@ In the `MMI-Cockpit-Carplay` menu, follow this order and let each action finish 
 - If the SD card is not detected, check FAT32, root layout, and read/write status. If `STATUS` is not ready, confirm that CarPlay is connected and navigation is producing video, then record the status and logs; do not repeatedly force `START`.
 - `STORE LOGS + RESTORE` tries to collect diagnostics and **then immediately restores the stock configuration**. It is not a logs-only action. If you want to keep the AltScreen runtime installed and active, do not select it.
 
-### 6. Restore the stock configuration
+### 6. Logs
+
+- Runtime logs are kept on the head unit in `/tmp/MMI-Cockpit-Carplay/`. They cover private111 connect / teardown, H.264, Screen readback, decoded SHM, display frame rate, displayable3, Context80, view-area and layout state, and system diagnostics such as CPU, temperature, and memory.
+- After `STORE LOGS + RESTORE`, logs are saved to the `MMI-Cockpit-Carplay/logs/` directory on the SD card.
+- When something goes wrong, save the complete logs before changing any configuration or code. When reporting an issue, attach the logs and include the firmware version and region, the Classic / Sport and FULL / SMALL layout, and how the phone was connected (phone plugged in before the head unit started / after it fully started / quick reconnect).
+
+### 7. Restore the stock configuration
 
 1. Insert the SD card that retains the `MMI-Cockpit-Carplay` stock-backup directory. Select `RESTORE ORIGINAL`, or `STORE LOGS + RESTORE` if you want to collect logs before restoring.
-2. Wait for `RESTORE=PASS` and `reboot_required=YES`, then fully reboot the head unit. Restore removes this project's HMI JAR and restores the related stock configuration.
+2. Wait for `RESTORE=PASS` and `reboot_required=YES`, then fully reboot the head unit. Restore stops the display process, releases the Context80 display demand, removes the startup entries, removes this project's HMI JAR, and restores the HMI files and preload configuration saved before installation.
 3. If installation or restore was interrupted, runtime operation remains disabled. Keep the original backup card, run `RESTORE ORIGINAL` again, confirm that restoration succeeds, and only then consider running `INSTALL` again. Do not run `START` while restoration is incomplete.
 
-### 7. Upgrade from an older version
+### 8. Upgrade from an older version
 
 Upgrading requires **restoring first, then installing**. Do not run `INSTALL` directly over an older version that is still active:
 
@@ -178,6 +213,19 @@ Upgrading requires **restoring first, then installing**. Do not run `INSTALL` di
 4. Run `Update Toolbox` as described in section 3, then follow section 4: `INSTALL` → full reboot → `START` → full reboot.
 
 See [SD_CARD_README.txt](SD_CARD_README.txt) for the notes shipped on the SD card. Changing head-unit system files can cause a blank screen or require recovery.
+
+---
+
+## Contributing
+
+**V3.7 is fully open source, and everyone is welcome to help maintain the project, fix issues, and add new features.**
+
+- Report problems through Issues, with complete logs, the firmware version and region, the layout, and how the phone was connected.
+- Submit fixes and new features through Pull Requests. Vehicle test results on US / ER and other regional firmware are also welcome and help widen the validated scope.
+- In a pull request, describe the test vehicle, firmware version, test steps, and results.
+- Change one layer at a time: do not introduce a new decoder, a new Context, and broad display-structure changes in the same change, or it becomes hard to tell which layer caused a problem.
+- Vehicle tests should cover cold start (phone plugged in before the head unit started / after it fully started / quick reconnect) and the four Classic / Sport × FULL / SMALL layouts, and confirm that `RESTORE ORIGINAL` still restores correctly.
+- Contributed code is released with this project under GPL-3.0.
 
 ---
 

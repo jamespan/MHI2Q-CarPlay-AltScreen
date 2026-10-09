@@ -65,6 +65,35 @@
 
 ---
 
+## 工作原理
+
+本项目不再依赖早期的 Window58 读取路线，而是直接接入 CarPlay 的 **private type111** 第二屏视频流：保留原车 AirPlay / OMX 解码流程，从原车 renderer 安全读取画面并线性化为标准 NV12，再交给独立显示进程，最终通过 GLES / displayable3 / Java Context80 输出到仪表。
+
+```text
+iPhone CarPlay
+  ↓
+private type111 第二屏视频流
+  ↓
+原车 AirPlay / OMX 解码
+  ↓
+QNX Screen 读取 + 线性化 → 标准 NV12（/carplay111_decoded）
+  ↓
+独立显示进程（sidecar）
+  ↓
+GLES / displayable3（1440×542 源画面 1:1 输出到 1440×455 仪表平面）
+  ↓
+Java/HMI Context80
+  ↓
+Virtual Cockpit
+```
+
+- CarPlay 主屏（Main110）保持原车链路，不参与这条显示路径。
+- 不引入额外解码器，继续复用 MHI2Q 上已经稳定工作的原车解码流程，减少新变量。
+- FULL / SMALL 两个 viewArea 通过标准 `updateViewArea` 在同一 CarPlay 会话中动态切换；Classic / Sport 布局跟随车机 HMI 状态。
+- Java/HMI 是 Context80 的唯一控制方，显示进程不直接修改仪表 Context。
+
+---
+
 ## 安装与测试
 
 > [!IMPORTANT]
@@ -74,7 +103,7 @@
 > - **本项目本身不能直接通过红色菜单安装。**
 > - 本项目应在上游 Toolbox 已正常安装后，通过绿色菜单里的 **`MQBCoding → Update Toolbox`** 写入菜单和脚本。
 > - 如果绿色菜单里的 `Update Toolbox` 提示 `Script not found` 或缺少 `/eso/hmi/engdefs/scripts/mqb/update_toolbox.sh`，先重新安装 / 修复上游 Toolbox，再继续本项目。
-> - **从本项目旧版本升级时，必须先复原再安装**，请直接按第 7 节操作，不要在旧版上直接覆盖执行 `INSTALL`。
+> - **从本项目旧版本升级时，必须先复原再安装**，请直接按第 8 节操作，不要在旧版上直接覆盖执行 `INSTALL`。
 
 ### 1. 先确认上游 MIB2 Toolbox 是否正常
 
@@ -91,7 +120,7 @@
 2. 从本仓库 [Releases](https://github.com/yuedizhibo/MHI2Q-CarPlay-AltScreen/releases) 下载安装包并解压。这里使用的是已编译的上车覆盖文件，**不需要复制源码或编译目录**。将安装包中的 **`Toolbox/` 目录合并到 SD 卡根目录已有的 `Toolbox/` 目录**：
    - 同名文件：使用本项目版本覆盖；
    - 上游独有文件：全部保留；
-   - 从本项目旧版升级时（先按第 7 节完成复原），删除卡上 `Toolbox/carplay_alt_screen/mirror_display/release/` 内旧版的 `logo.rgba` 和 `watermark.rgba`；新版不再使用它们；
+   - 从本项目旧版升级时（先按第 8 节完成复原），删除卡上 `Toolbox/carplay_alt_screen/mirror_display/release/` 内旧版的 `logo.rgba` 和 `watermark.rgba`；新版不再使用它们；
    - **不要清空后再复制，也不要把本项目当成一张独立的红菜单安装卡。**
 3. 也可以同时复制 `SD_CARD_README.txt` 和 `SHA256SUMS-SD.txt` 到卡根目录。若更换 SD 卡，务必同时完整保留 `MMI-Cockpit-Carplay` 原车备份目录。
 4. 正确结构应类似：
@@ -162,13 +191,19 @@ Script not found:
 - 若 SD 卡找不到，核对 FAT32、卡根目录文件和读写状态。若 `STATUS` 不就绪，确认已连接 CarPlay 且导航正在输出，再记录状态及日志；不要反复强制执行 `START`。
 - `STORE LOGS + RESTORE` 会尽力保存诊断日志，**随后立即恢复原车配置**；它不是只导出日志的按钮。需要保留第二屏运行时，不要选择它。
 
-### 6. 恢复原车
+### 6. 日志
+
+- 运行中的日志位于车机 `/tmp/MMI-Cockpit-Carplay/`，包括 private111 建连与断开、H.264、Screen 读取、decoded SHM、显示帧率、displayable3、Context80、viewArea 与布局状态，以及 CPU / 温度 / 内存等系统诊断。
+- 执行 `STORE LOGS + RESTORE` 后，日志保存在 SD 卡的 `MMI-Cockpit-Carplay/logs/` 目录。
+- 出现问题时请先保存完整日志，再修改配置或代码。反馈问题时请附上日志，并说明固件版本与地区、Classic / Sport 和 FULL / SMALL 布局，以及连接方式（先插手机再启动车机 / 车机完全启动后再插手机 / 快速重连）。
+
+### 7. 恢复原车
 
 1. 插入保留了 `MMI-Cockpit-Carplay` 原车备份目录的 SD 卡，在菜单选择 `RESTORE ORIGINAL`；若要先收集日志再恢复，选择 `STORE LOGS + RESTORE`。
-2. 等待 `RESTORE=PASS` 和 `reboot_required=YES`，然后完整重启车机。恢复会删除本项目的 HMI JAR，并还原相关原车配置。
+2. 等待 `RESTORE=PASS` 和 `reboot_required=YES`，然后完整重启车机。恢复会停止显示进程、释放 Context80 显示需求、移除启动项、删除本项目的 HMI JAR，并还原安装前保存的 HMI 文件和 preload 相关配置。
 3. 如果安装或恢复中断，运行会保持关闭。保留原备份卡，先重新执行 `RESTORE ORIGINAL`，确认恢复成功后再考虑重新 `INSTALL`；不要在恢复未完成时继续 `START`。
 
-### 7. 从旧版本升级
+### 8. 从旧版本升级
 
 升级必须**先复原、再安装**，不要在旧版运行状态下直接覆盖执行 `INSTALL`：
 
@@ -178,6 +213,19 @@ Script not found:
 4. 按第 3 节执行 `Update Toolbox`，再按第 4 节执行 `INSTALL` → 完整重启 → `START` → 完整重启。
 
 SD 卡随附说明见 [SD_CARD_README.txt](SD_CARD_README.txt)。车机修改有黑屏或需要恢复的风险。
+
+---
+
+## 参与维护
+
+**V3.7 全部开源，欢迎各位一起维护、修复问题和增添新功能。**
+
+- 通过 Issue 反馈问题，请附上完整日志、固件版本与地区、布局和连接方式。
+- 通过 Pull Request 提交修复和新功能；也欢迎补充 US / ER 等其他地区固件的实车测试结果，帮助扩大已验证范围。
+- 提交 PR 时请说明测试车型、固件版本、测试步骤和结果。
+- 每次只改动一层：不要在一次修改中同时引入新的解码器、新的 Context 或大范围显示结构调整，否则出现异常后很难定位是哪一层造成的。
+- 上车测试请覆盖冷启动（先插手机再启动车机 / 车机完全启动后再插手机 / 快速重连）以及 Classic / Sport、FULL / SMALL 四种布局，并确认 `RESTORE ORIGINAL` 仍能正常恢复。
+- 提交的代码将随本项目以 GPL-3.0 发布。
 
 ---
 
