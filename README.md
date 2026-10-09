@@ -1,10 +1,10 @@
-# MIB2 Toolbox — CarPlay AltScreen V3.5Fix2
+# MIB2 Toolbox — CarPlay AltScreen V3.7
 
 [English](README_EN.md) | **简体中文**
 
-本项目面向 Audi **MHI2Q** 平台，用于将 **CarPlay 原生 AltScreen / 第二屏导航画面**直接显示至车辆的 **Virtual Cockpit**。核心显示链路已完成实车验证。操作前请先阅读 [SD 卡说明](SD_CARD_README.txt)。
+本项目面向 Audi **MHI2Q** 平台，用于将 **CarPlay 原生 AltScreen / 第二屏导航画面**直接显示至车辆的 **Virtual Cockpit**。核心显示链路已完成实车验证。操作前请完整阅读本说明。
 
-**10月1日更新Classic / Sport动态布局适配，该版本预计十月中旬去除运行水印。** 
+**V3.7 更新：完整 RGI 导航信息联动上线（基于 [Luka 的 mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi) 构建）；运行水印已移除；V3.7 起全部以 GPL-3.0 开源。**
 
 > [!NOTE]
 > **姊妹项目：MMI Mirror**  
@@ -14,24 +14,23 @@
 > [!WARNING]
 > **⚠️ 写在前面**
 >
-> 当前仓库提供的是基于实车验证显示链路的 **先行公开版本**。完整开发版本已经包含更多功能，但考虑到此前免费测试成果曾被未经允许包装和倒卖，我们不会在第一次公开时一次性发布全部功能。
+> 考虑到此前免费测试成果曾被未经允许包装和倒卖，本项目早期版本只公开了运行包，并分阶段发布功能。**自 V3.7 起，本项目全部开源**：全部功能与源码均已在本仓库公开。
 >
-> 后续会在完成整理、稳定性验证和兼容性确认后，逐步将成熟功能更新到公开版本。
+> 本项目整体采用 **[GNU GPL v3.0](LICENSE)** 许可：任何人都可以使用、修改和再分发；再分发二进制或修改版时，必须以 GPL-3.0 同时提供完整源码。详见文末「许可、作者与第三方文件」。
 >
 > 当前版本并非演示代码，现有 CarPlay AltScreen 第二屏功能已经可以正常实车使用。
 >
-> 本项目最初就是基于我们自己的车辆和日常使用需求进行开发，当前开发与测试范围以 **MHI2Q / 中国区（CN）固件**为主。我们目前**不会针对 MHI2 平台，也不会针对 US / ER 等其他地区固件主动开展适配**。如果你的车辆不在当前已验证范围内，请不要默认其具备兼容性，也不要绕过安装脚本的检查强制安装。
+> 本项目最初就是基于我们自己的车辆和日常使用需求进行开发。**中国区（CN）AUG22 固件已经过实车测试，可以正常使用。** US / ER 等其他地区的 AUG22 固件可能存在未知 BUG，**不保证 100% 可用**，请自行评估风险并保留好原车备份。本项目不支持 MHI2 平台；请不要绕过安装脚本的固件检查强制安装。
 >
-> **免费分享，禁止倒卖。**
+> **免费分享。** 本项目的源码和安装包都可以在 GitHub 上免费获取，请不要花钱购买。
 >
-> 可以学习、研究和交流，但请不要把免费的测试与开发成果重新包装后用于牟利。
+> 欢迎学习、研究和交流。如果有人向你提供本项目或其修改版，你有权按 GPL-3.0 向对方索取完整源码。
 
 > [!IMPORTANT]
 > 本项目会修改车机系统文件。安装、启动或恢复过程中请保持 SD 卡连接和车机供电稳定。  
 > **安装或恢复完成后，请按照页面中的步骤完整重启车机 / HMI，再判断结果。**
 >
 > 请勿在驾驶过程中进行安装、更新、恢复或故障处理。
->
 
 ---
 
@@ -45,26 +44,141 @@
 
 - CarPlay 原生 AltScreen
 - CarPlay 主屏正常使用，不受第二屏影响
+- 完整 RGI 导航信息联动（基于 [Luka 的 mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi) 构建）
+  - 仪表转向箭头与车道引导
+  - 当前道路、剩余距离、到达时间同步到仪表底部信息栏
+- Classic / Sport 动态布局适配
+- 全域居中
+- 方向盘左侧滚轮缩放
 - STATUS 状态诊断
 - 安全安装与恢复
 - 安装 / 恢复中断保护
 - 原车配置恢复
 - 日志与 SD 卡备份
-- 核心显示链路已在 **中国区 AUG22 固件**完成实车验证
-- Classic / Sport 动态布局适配
-- 全域居中
-- 方向盘左侧滚轮缩放
 
-## 暂未包含在当前公开版本
-- 更完整的 RGI 导航信息联动
+## 适用范围
 
-
-上述功能会根据稳定性、兼容性和整理进度，逐步更新到后续公开版本。**MHI2 平台以及 US / ER 等其他地区固件的适配目前不在本项目计划内。**
-
+| 项目 | 状态 |
+|---|---|
+| 平台 | 仅 **MHI2Q**；不支持 MHI2 |
+| 固件版本 | **AUG22**；安装脚本会核验车机固件版本，非 AUG22 会拒绝安装 |
+| 中国区（CN）固件 | ✅ 已实车测试，可以正常使用 |
+| US / ER 等其他地区固件 | ⚠️ 可能存在未知 BUG，不保证 100% 可用 |
 
 ---
 
-### 安装与测试
+## 工作原理与架构
+
+本项目不再依赖早期的 Window58 读取路线，而是直接接入 CarPlay 的 **private type111** 第二屏视频流：保留原车 AirPlay / OMX 解码流程，从原车 renderer 安全读取画面并线性化为标准 NV12，再交给独立显示进程，最终通过 GLES / displayable3 / Java Context80 输出到仪表。完整 RGI 则通过 iAP2 RouteGuidance 取得导航信息，由 Java HMI 分发给仪表底部信息栏和独立的转向箭头渲染器。
+
+### 架构图
+
+```mermaid
+flowchart TB
+    iPhone["iPhone CarPlay"]
+
+    subgraph DIO["dio_manager"]
+        OMX["原车 OMX 解码 + renderer"]
+        ALT["libcarplay_altscreen.so<br/>第二屏接入 · viewArea<br/>滚轮缩放 → changeMapZoomLevel"]
+        RGIM["libcarplay_rgi_meta.so<br/>iAP2 RouteGuidance"]
+    end
+
+    SHM[("/carplay111_decoded<br/>NV12 共享内存")]
+
+    subgraph HMI["车机 Java HMI"]
+        BUS["CarplayBus<br/>TCP 19810"]
+        RG["RouteGuidance"]
+        BAP["BAPBridge / LowerBarKomo"]
+        RS["RendererServer<br/>TCP 19800"]
+        CSC["ClusterStateController<br/>Context80"]
+        WZ["WheelZoomBridge"]
+    end
+
+    subgraph SIDE["独立进程"]
+        MIR["carplay-alt111-mirror-display<br/>第二屏显示 · 开屏 Logo"]
+        MR["maneuver_render<br/>转向箭头 · 车道引导"]
+    end
+
+    VC["Virtual Cockpit"]
+
+    iPhone -- "type111 第二屏视频" --> OMX
+    iPhone -- "iAP2 导航信息" --> RGIM
+    ALT -. "安全读取画面" .-> OMX
+    OMX --> SHM --> MIR
+    RGIM -- "TCP" --> BUS --> RG
+    RG --> BAP
+    RG --> RS -- "TCP" --> MR
+    WZ -- "滚轮事件队列" --> ALT
+    MIR -- "displayable3 · 地图" --> VC
+    MR -- "displayable 98 · 箭头" --> VC
+    BAP -- "道路 / 距离 / 到达时间" --> VC
+    CSC -- "切换 Context80" --> VC
+```
+
+### 第二屏显示链路
+
+```text
+iPhone CarPlay
+  ↓
+private type111 第二屏视频流
+  ↓
+原车 AirPlay / OMX 解码
+  ↓
+QNX Screen 读取 + 线性化 → 标准 NV12（/carplay111_decoded）
+  ↓
+独立显示进程（carplay-alt111-mirror-display）
+  ↓
+GLES / displayable3（1440×542 源画面 1:1 输出到 1440×455 仪表平面）
+  ↓
+Java/HMI Context80
+  ↓
+Virtual Cockpit
+```
+
+- CarPlay 主屏（Main110）保持原车链路，不参与这条显示路径。
+- 不引入额外解码器，继续复用 MHI2Q 上已经稳定工作的原车解码流程，减少新变量。
+- FULL / SMALL 两个 viewArea 通过标准 `updateViewArea` 在同一 CarPlay 会话中动态切换；Classic / Sport 布局跟随车机 HMI 状态。
+- Java/HMI 是 Context80 的唯一控制方，显示进程不直接修改仪表 Context。
+
+### RGI 导航信息链路
+
+- `libcarplay_rgi_meta.so` 在原车 CarPlay 进程中接收 iAP2 RouteGuidance 导航信息，通过本机 TCP 19810 交给 Java HMI。
+- Java HMI 把当前道路、剩余距离和到达时间写入仪表底部信息栏；没有有效 CarPlay 数据时交还原车显示。
+- 转向箭头和车道引导通过本机 TCP 19800 发给独立的 `maneuver_render` 进程，由它绘制到 displayable 98；该进程由 `rgi_supervisor.sh` 守护，异常退出后有限次自动重启。
+
+### 方向盘滚轮缩放
+
+Java HMI 捕获方向盘左侧滚轮事件，写入事件队列；`libcarplay_altscreen.so` 按目标缩放级别逐步向 iPhone 发送标准 `changeMapZoomLevel` 请求，并根据第二屏新帧控制发送节奏。
+
+---
+
+## 源码结构与构建
+
+V3.7 起全部源码都在本仓库中：
+
+| 路径 | 内容 | 产物 |
+|---|---|---|
+| `Toolbox/carplay_alt_screen/src/` | 原车 CarPlay 进程的预加载 hook：private111 第二屏接入、画面读取、viewArea、滚轮缩放 | `universal/libcarplay_altscreen.so` |
+| `Toolbox/carplay_alt_screen/mirror_display/` | 第二屏显示进程（C++ / GLES / displayable3），内嵌开屏 Logo | `mirror_display/release/carplay-alt111-mirror-display` |
+| `Toolbox/carplay_alt_screen/rgi_native/` | RGI 预加载 hook：iAP2 RouteGuidance 解析与转发 | `rgi_meta/libcarplay_rgi_meta.so` |
+| `Toolbox/carplay_alt_screen/rgi_renderer/` | 转向箭头 / 车道引导渲染器 | `rgi_renderer/release/maneuver_render` |
+| `Toolbox/carplay_alt_screen/hmi/` | Java HMI hook：Context80、仪表图层、RGI 分发、滚轮事件；`stubs/` 为编译用原车接口桩，`vendor/` 为基线 JAR | `hmi/carplay_hook-basevideo3.jar` |
+| `Toolbox/scripts/` | 安装 / 启动 / 状态 / 恢复 / 诊断脚本 | 随 SD 卡使用；绿色菜单文件随 Releases 安装包提供 |
+| `Tools/`、`BUILD-*.sh` | 构建与校验工具 | — |
+
+构建需要 QNX 6.5.0 SDP 的 ARM 交叉工具链（`arm-unknown-nto-qnx6.5.0eabi-gcc`）：
+
+```sh
+sh BUILD-UNIVERSAL-QNX.sh      # 第二屏 hook → libcarplay_altscreen.so
+sh BUILD-MIRROR-QNX.sh         # 第二屏显示进程 → carplay-alt111-mirror-display
+bash Tools/build_rgi_qnx.sh    # RGI hook + 渲染器 → libcarplay_rgi_meta.so、maneuver_render
+```
+
+构建输出位于 `dev-build/` 或 `mirror_display/build/` 目录（不纳入版本库），不会直接覆盖 `release/` 中的上车文件。替换上车文件后，请同步更新对应的 `BUILD_INFO.txt`、`SHA256SUMS` 与根目录的 `SHA256SUMS-SD.txt`。
+
+---
+
+## 安装与测试
 
 > [!IMPORTANT]
 > **本仓库现在只提供 CarPlay AltScreen 覆盖包，不再包含完整 MIB2 Toolbox 安装器。**
@@ -73,25 +187,26 @@
 > - **本项目本身不能直接通过红色菜单安装。**
 > - 本项目应在上游 Toolbox 已正常安装后，通过绿色菜单里的 **`MQBCoding → Update Toolbox`** 写入菜单和脚本。
 > - 如果绿色菜单里的 `Update Toolbox` 提示 `Script not found` 或缺少 `/eso/hmi/engdefs/scripts/mqb/update_toolbox.sh`，先重新安装 / 修复上游 Toolbox，再继续本项目。
+> - **从本项目旧版本升级时，必须先复原再安装**，请直接按第 8 节操作，不要在旧版上直接覆盖执行 `INSTALL`。
 
-#### 1. 先确认上游 MIB2 Toolbox 是否正常
+### 1. 先确认上游 MIB2 Toolbox 是否正常
 
-1. 先在车机信息页确认固件版本。本项目面向安装脚本能够核验的 **AUG22** 固件；版本不符或无法确认时停止操作，不要绕过检查。
+1. 先在车机信息页确认固件版本为 **AUG22**。安装脚本会核验固件版本，非 AUG22 固件会被拒绝；版本不符或无法确认时停止操作，不要绕过检查。非中国区固件请先阅读上方「适用范围」。
 2. 车辆停稳并保持稳定供电。备份正在使用的 SD 卡及原车文件，准备一张可正常读写的 **FAT32** SD 卡。如果旧卡已有 `MMI-Cockpit-Carplay` 目录，换卡时完整保留；其中有原车备份，日后恢复需要这张备份卡。
 3. 如果车上已经能够正常进入 `Green Developer Menu → MQBCoding`，并且 **`Update Toolbox` 可以正常执行且不会提示 Script not found**，可直接跳到第 2 节。
 4. 如果车上尚未安装上游 Toolbox，或者绿色菜单存在但 `Update Toolbox` 已损坏 / 提示脚本不存在，请前往 **[jilleb/mib2-toolbox](https://github.com/jilleb/mib2-toolbox)** 下载最新完整版本并解压。将**上游包内的文件和目录**复制到 SD 卡根目录，不要再套一层 ZIP 名称文件夹。
 5. 车机中只插这一张 SD 卡，进入红色菜单，选择 `Software updates/versions → Update → SD 卡 → MQB Coding MIB2 Toolbox`。等待软件更新和自动重启全部完成，不要提前拔卡或断电。
 6. 重启完成后，进入 `Green Developer Menu → MQBCoding`，确认 **`Update Toolbox` 能正常执行**。如果上游安装包不被识别，检查 FAT32、根目录结构和上游说明；仍被拒绝就停止，不要强制刷入。
 
-#### 2. 将本项目覆盖包合并到上游 Toolbox
+### 2. 将本项目覆盖包合并到上游 Toolbox
 
 1. 在电脑上保留**上游完整 MIB2 Toolbox SD 卡内容**，不要删除其 `metainfo2.txt`、`Toolbox/final/`、`Toolbox/GEM/mqb-main.esd`、`Toolbox/scripts/update_toolbox.sh` 或其他上游文件。
-2. 下载本仓库 ZIP 并解压。这里使用的是已编译的上车覆盖文件，**不需要复制源码或编译目录**。将本仓库的 **`Toolbox/` 目录合并到 SD 卡根目录已有的 `Toolbox/` 目录**：
+2. 从本仓库 [Releases](https://github.com/yuedizhibo/MHI2Q-CarPlay-AltScreen/releases) 下载安装包并解压。这里使用的是已编译的上车覆盖文件，**不需要复制源码或编译目录**。将安装包中的 **`Toolbox/` 目录合并到 SD 卡根目录已有的 `Toolbox/` 目录**：
    - 同名文件：使用本项目版本覆盖；
    - 上游独有文件：全部保留；
-   - 从本项目旧版更新时，删除卡上 `Toolbox/carplay_alt_screen/mirror_display/release/` 内旧版的 `logo.rgba` 和 `watermark.rgba`；新版不再使用它们；
+   - 从本项目旧版升级时（先按第 8 节完成复原），删除卡上 `Toolbox/carplay_alt_screen/mirror_display/release/` 内旧版的 `logo.rgba` 和 `watermark.rgba`；新版不再使用它们；
    - **不要清空后再复制，也不要把本项目当成一张独立的红菜单安装卡。**
-3. 也可以同时复制 `SD_CARD_README.txt` 和 `SHA256SUMS-SD.txt` 到卡根目录。若更换 SD 卡，务必同时完整保留 `MMI-Cockpit-Carplay` 原车备份目录。
+3. 安装包根目录的 `SHA256SUMS-SD.txt` 也一并复制到卡根目录，用于下一步校验。若更换 SD 卡，务必同时完整保留 `MMI-Cockpit-Carplay` 原车备份目录。
 4. 正确结构应类似：
 
 ```text
@@ -106,7 +221,6 @@ SD 卡根目录/
 │  │  ├─ update_toolbox.sh       ← 上游 Toolbox 保留
 │  │  └─ ...AltScreen scripts... ← 本项目
 │  └─ carplay_alt_screen/        ← 本项目 payload
-├─ SD_CARD_README.txt
 └─ SHA256SUMS-SD.txt
 ```
 
@@ -119,7 +233,7 @@ sha256sum -c SHA256SUMS-SD.txt
 
 确认本项目清单中的文件均为 `OK`。该清单只校验本项目覆盖文件，不校验上游完整 Toolbox。
 
-#### 3. 用绿色菜单加载本项目菜单和脚本
+### 3. 用绿色菜单加载本项目菜单和脚本
 
 1. 将合并后的 SD 卡插回车机。
 2. 打开 `TESTMODE → Green Developer Menu → MQBCoding`。
@@ -140,16 +254,19 @@ Script not found:
 
 说明车机上的**上游 Toolbox 基础安装本身仍未修复**。不要继续执行本项目的 `INSTALL`，应返回第 1 节重新修复上游 Toolbox。
 
-#### 4. 安装第二屏并启动
+### 4. 安装第二屏并启动
 
 在 `MMI-Cockpit-Carplay` 菜单中按以下顺序操作，每步完成后再进行下一步：
 
 1. **断开 iPhone / CarPlay**，避免安装过程中正在输出导航视频。
 2. 选择 `INSTALL`。等待执行结束；看到 `INSTALL=PASS` 且提示 `reboot_required=YES` 后，**完整重启车机**。若出现 `FAIL`，先记录提示并停止后续步骤。
 3. 重启完成后选择 `START`。等待 `START=PASS` 和 `reboot_required=YES`，然后**再次完整重启车机**。若失败，不要直接跳到连接手机。
-4. 第二次重启后连接 iPhone、进入 CarPlay 并启动导航。观察 Virtual Cockpit 是否出现第二屏画面且能随导航更新。收到有效第二屏视频后，启动 Logo 缩至原大小的 80%、居中显示约 2 秒；运行时参考项目原始的“免费开源，禁止倒卖”水印会按参考程序的逐帧节奏在可见视频区域内漂移、碰边折返。启动 Logo 不是整车开机 Logo。
+4. 第二次重启后连接 iPhone、进入 CarPlay 并启动导航。观察 Virtual Cockpit 是否出现第二屏画面且能随导航更新。
 
-#### 5. 查看状态和排查
+> [!NOTE]
+> GitHub Releases 中发布的安装包会在第二屏启动时显示开屏水印，属于正常现象。它不是整车开机 Logo。
+
+### 5. 查看状态和排查
 
 - 在 CarPlay 导航运行时打开 `STATUS`。`PHYSICAL_ROUTE_READY=SOFTWARE_CHAIN_COMPLETE` 表示脚本观察到视频解码、显示链路和 Context 80 等软件条件；仍须**亲眼确认仪表实际显示画面**。`PHYSICAL_ROUTE_READY=NO` 表示条件未齐，按输出中的缺失项检查。
 - 若完全看不到 `MMI-Cockpit-Carplay` 菜单，先确认上游绿菜单正常、SD 卡目录层级正确，并确认 `MQBCoding → Update Toolbox` 已成功执行。
@@ -157,45 +274,91 @@ Script not found:
 - 若 SD 卡找不到，核对 FAT32、卡根目录文件和读写状态。若 `STATUS` 不就绪，确认已连接 CarPlay 且导航正在输出，再记录状态及日志；不要反复强制执行 `START`。
 - `STORE LOGS + RESTORE` 会尽力保存诊断日志，**随后立即恢复原车配置**；它不是只导出日志的按钮。需要保留第二屏运行时，不要选择它。
 
-#### 6. 恢复原车
+### 6. 日志
+
+- 运行中的日志位于车机 `/tmp/MMI-Cockpit-Carplay/`，包括 private111 建连与断开、H.264、Screen 读取、decoded SHM、显示帧率、displayable3、Context80、viewArea 与布局状态，以及 CPU / 温度 / 内存等系统诊断。
+- RGI 渲染器日志位于 `/tmp/maneuver_render.log`。
+- 执行 `STORE LOGS + RESTORE` 后，日志保存在 SD 卡的 `MMI-Cockpit-Carplay/logs/` 目录。
+- 出现问题时请先保存完整日志，再修改配置或代码。反馈问题时请附上日志，并说明固件版本与地区、Classic / Sport 和 FULL / SMALL 布局，以及连接方式（先插手机再启动车机 / 车机完全启动后再插手机 / 快速重连）。
+
+### 7. 恢复原车
 
 1. 插入保留了 `MMI-Cockpit-Carplay` 原车备份目录的 SD 卡，在菜单选择 `RESTORE ORIGINAL`；若要先收集日志再恢复，选择 `STORE LOGS + RESTORE`。
-2. 等待 `RESTORE=PASS` 和 `reboot_required=YES`，然后完整重启车机。恢复会删除本项目的 HMI JAR，并还原相关原车配置。
+2. 等待 `RESTORE=PASS` 和 `reboot_required=YES`，然后完整重启车机。恢复会停止显示进程、释放 Context80 显示需求、移除启动项、删除本项目的 HMI JAR，并还原安装前保存的 HMI 文件和 preload 相关配置。
 3. 如果安装或恢复中断，运行会保持关闭。保留原备份卡，先重新执行 `RESTORE ORIGINAL`，确认恢复成功后再考虑重新 `INSTALL`；不要在恢复未完成时继续 `START`。
 
-详细运行说明见 [SD 卡说明](SD_CARD_README.txt)。车机修改有黑屏或需要恢复的风险。
+### 8. 从旧版本升级
 
-### 许可与第三方文件
+升级必须**先复原、再安装**，不要在旧版运行状态下直接覆盖执行 `INSTALL`：
 
-本项目由 [yuedizhibo](https://github.com/yuedizhibo) 和 [Lanye-z](https://github.com/Lanye-z) 共同开发。仓库根目录的 [PolyForm Noncommercial 1.0.0 许可](LICENSE)仅适用于相应权利人有权按该许可发布的原创部分：允许非商业使用、修改和分发；商业使用须另行取得相关权利人的许可。本仓库提供运行二进制、安装脚本和说明，未提供构建该 QNX 二进制的 C/C++ 源码；由于限制商用，该许可不属于 OSI 定义的开源许可。
+1. 断开 iPhone / CarPlay，插入保留了 `MMI-Cockpit-Carplay` 原车备份目录的 SD 卡。
+2. 在车机上现有的 `MMI-Cockpit-Carplay` 菜单中执行 `RESTORE ORIGINAL`，等待 `RESTORE=PASS` 和 `reboot_required=YES`，然后完整重启车机。若复原失败，停止升级，保留备份卡并记录提示。
+3. 复原成功后，按第 2 节把新版覆盖包合并到 SD 卡，并删除旧版遗留的 `logo.rgba` 和 `watermark.rgba`。卡上的 `MMI-Cockpit-Carplay` 目录必须完整保留。
+4. 按第 3 节执行 `Update Toolbox`，再按第 4 节执行 `INSTALL` → 完整重启 → `START` → 完整重启。
 
-运行时水印像素取自 [Lanye-z 的 MMI Mirror 项目](https://github.com/Lanye-z/MHI2Q-CarPlay-MMI-Mirror)，保留原始 196×32 尺寸，当前最高不透明度约为 10%。仓库中包含第三方文件，其原有授权不因仓库根目录的许可而改变。上游 MIB2 Toolbox 的 [MIT 许可](LICENSE.TOOLBOX-MIT)和镜像运行组件的[独立许可](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR)均须保留；使用或再分发时应分别遵守其条款。
-
-研究与实现参考项目：
-
-- [LIVI](https://github.com/f-io/LIVI)：CarPlay 主屏与仪表第二屏协议行为的研究参考。
-- [mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi)：MHI2Q 的 CarPlay 导航引导、HMI 与仪表交互参考。
-- [MIB2 High Toolbox](https://github.com/jilleb/mib2-toolbox)：SD 卡工具链、工程菜单及脚本的上游项目。
+车机修改有黑屏或需要恢复的风险。
 
 ---
 
-# 版本状态
+## 参与维护
+
+**V3.7 全部开源，欢迎各位一起维护、修复问题和增添新功能。**
+
+- 通过 Issue 反馈问题，请附上完整日志、固件版本与地区、布局和连接方式。
+- 通过 Pull Request 提交修复和新功能，构建方法见上方「源码结构与构建」；也欢迎补充 US / ER 等其他地区固件的实车测试结果，帮助扩大已验证范围。
+- 提交 PR 时请说明测试车型、固件版本、测试步骤和结果。
+- 每次只改动一层：不要在一次修改中同时引入新的解码器、新的 Context 或大范围显示结构调整，否则出现异常后很难定位是哪一层造成的。
+- 上车测试请覆盖冷启动（先插手机再启动车机 / 车机完全启动后再插手机 / 快速重连）以及 Classic / Sport、FULL / SMALL 四种布局，并确认 `RESTORE ORIGINAL` 仍能正常恢复。
+- 提交的代码将随本项目以 GPL-3.0 发布。
+
+---
+
+## 许可、作者与第三方文件
+
+本项目由 [yuedizhibo](https://github.com/yuedizhibo) 和 [Lanye-z](https://github.com/Lanye-z) 共同开发。**V3.7 全部开源**：本仓库公开全部 C/C++ 源码、运行二进制、安装脚本和说明，整个项目采用 **[GNU General Public License v3.0](LICENSE)**（GPL-3.0）发布。
+
+GPL-3.0 允许任何人使用、研究、修改和再分发本项目，包括商业用途；再分发二进制或修改版时，必须以 GPL-3.0 同时提供完整对应源码，并保留原有版权与许可声明。
+
+| 部分 | 来源 | 许可 |
+|---|---|---|
+| 第二屏显示链路（`src/`、`mirror_display/`）、安装 / 恢复 / 诊断脚本、绿色菜单、说明文档等 | 本项目原创 | GPL-3.0 |
+| Java HMI 与完整 RGI（`hmi/`、`rgi_native/`、`rgi_renderer/`） | 基于 [Luka 的 mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi) 构建；渲染器合并自 [Allemon/mib2-carplay-rgi-altscreen](https://github.com/Allemon/mib2-carplay-rgi-altscreen) | GPL-3.0 |
+| 上游 MIB2 Toolbox 相关文件 | [jilleb/mib2-toolbox](https://github.com/jilleb/mib2-toolbox) | [MIT](LICENSE.TOOLBOX-MIT)，与 GPL-3.0 兼容 |
+| 镜像运行组件 | [Lanye-z 的 MMI Mirror](https://github.com/Lanye-z/MHI2Q-CarPlay-MMI-Mirror) | [Unlicense](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR)，与 GPL-3.0 兼容 |
+
+源码中随附的其他第三方文件（如 `stb_image.h`、Unicode 数据文件）保留各自原有许可，第三方文件的原有授权声明须一并保留。
+
+---
+
+## 版本状态
 
 当前推荐版本：
 
 ~~~text
 main
-└── AUG22 / V3.5Fix2
-    └── 中国区实车验证完成
+└── AUG22 / V3.7
+    ├── 中国区（CN）固件：实车测试可用
+    └── 其他地区固件：可能存在未知 BUG，不保证 100% 可用
 ~~~
 
-当前公开版本以稳定、可安装、可恢复为优先目标；后续功能将分阶段更新。
+当前公开版本以稳定、可安装、可恢复为优先目标。
 
 ---
 
-# 公开发布说明
+## 公开发布说明
 
-本项目当前公开的是可安装运行包与相关说明，并不代表完整开发版本的全部功能已经一次性公开。
+自 V3.7 起，本项目全部开源：全部功能、源码、可安装运行包与相关说明均已公开，并统一以 GPL-3.0 发布。
 
-> **免费分享，禁止倒卖。**
+> **免费分享：本项目在 GitHub 上免费提供，请勿花钱购买。**
 
+---
+
+## 鸣谢
+
+感谢以下项目和作者，本项目在他们的工作基础上完成：
+
+- [Luka](https://github.com/luka-dev) 的 [mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi)：完整 RGI 导航信息联动与 Java HMI 的构建基础，以及 MHI2Q 的 CarPlay 导航引导、HMI 与仪表交互参考。
+- [Allemon](https://github.com/Allemon) 的 [mib2-carplay-rgi-altscreen](https://github.com/Allemon/mib2-carplay-rgi-altscreen)：RGI 转向箭头渲染器的上游实现。
+- [LIVI](https://github.com/f-io/LIVI)：CarPlay 主屏与仪表第二屏协议行为的研究参考。
+- [jilleb](https://github.com/jilleb) 的 [MIB2 High Toolbox](https://github.com/jilleb/mib2-toolbox)：SD 卡工具链、工程菜单及脚本的上游项目。
+- 所有参与实车测试、反馈问题和提交日志的朋友。

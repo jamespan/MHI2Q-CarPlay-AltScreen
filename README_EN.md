@@ -1,12 +1,10 @@
-# MIB2 Toolbox — CarPlay AltScreen V3.5Fix2
+# MIB2 Toolbox — CarPlay AltScreen V3.7
 
 **English** | [简体中文](README.md)
 
-This project is designed for the Audi **MHI2Q** platform and displays the **native CarPlay AltScreen / secondary navigation view** directly on the vehicle's **Virtual Cockpit**. The core display path has been verified in a vehicle. Read the [SD card instructions](SD_CARD_README.txt) before making changes to the head unit.
+This project is designed for the Audi **MHI2Q** platform and displays the **native CarPlay AltScreen / secondary navigation view** directly on the vehicle's **Virtual Cockpit**. The core display path has been verified in a vehicle. Read this document in full before making changes to the head unit.
 
-
-**October 1 update: Classic / Sport dynamic layout adaptation has been added. This build is expected to remove the runtime watermark around mid-October.**
-
+**V3.7 update: full RGI navigation-data integration is now available (built on [Luka's mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi)), the runtime watermark has been removed, and starting with V3.7 the whole project is open source under GPL-3.0.**
 
 > [!NOTE]
 > **Sister project: MMI Mirror**  
@@ -16,24 +14,23 @@ This project is designed for the Audi **MHI2Q** platform and displays the **nati
 > [!WARNING]
 > **⚠️ A note before you start**
 >
-> The package currently published here is an **early public release based on a vehicle-validated display path**. The complete development version already contains additional features, but because freely shared test builds have previously been repackaged and resold without permission, not every completed feature will be released all at once.
+> Because freely shared test builds were previously repackaged and resold without permission, earlier versions of this project published only the runtime package and released features in stages. **Starting with V3.7, the project is fully open source**: every feature and all source code are published in this repository.
 >
-> Mature features will be added gradually after cleanup, stability testing, and compatibility verification.
+> The whole project is licensed under the **[GNU GPL v3.0](LICENSE)**: anyone may use, modify, and redistribute it, and anyone who redistributes binaries or modified versions must also provide the complete source under GPL-3.0. See "Licensing, authors, and third-party files" below.
 >
 > This is not a demonstration build. The current CarPlay AltScreen functionality is already usable in a real vehicle.
 >
-> This project was originally developed around our own vehicles and day-to-day use cases. The current development and validation scope is focused on **MHI2Q / China-region (CN) firmware**. We currently **do not plan to actively adapt the project for the MHI2 platform or for US / ER and other regional firmware variants**. If your vehicle is outside the currently validated scope, do not assume compatibility and do not bypass the installer's checks to force installation.
+> This project was originally developed around our own vehicles and day-to-day use cases. **China-region (CN) AUG22 firmware has been tested in a vehicle and works normally.** AUG22 firmware for US / ER and other regions may have unknown bugs and is **not guaranteed to work 100%**; assess the risk yourself and keep your stock backup. The MHI2 platform is not supported. Do not bypass the installer's firmware checks to force installation.
 >
-> **Shared free of charge. Reselling is prohibited.**
+> **Shared free of charge.** The source and installation packages are available for free on GitHub; do not pay for them.
 >
-> You are welcome to learn from, study, and discuss the project, but please do not repackage free testing and development work for profit.
+> You are welcome to learn from, study, and discuss the project. If someone provides you with this project or a modified version of it, the GPL-3.0 entitles you to request the complete source from them.
 
 > [!IMPORTANT]
 > This project modifies system files on the head unit. Keep the SD card inserted and maintain stable power during installation, start, or recovery operations.  
 > **After installation or recovery, fully reboot the head unit / HMI as instructed before judging the result.**
 >
 > Do not perform installation, update, recovery, or troubleshooting while driving.
->
 
 ---
 
@@ -47,24 +44,141 @@ This project is designed for the Audi **MHI2Q** platform and displays the **nati
 
 - Native CarPlay AltScreen
 - The main CarPlay display remains available and unaffected
+- Full RGI navigation-data integration (built on [Luka's mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi))
+  - Maneuver arrows and lane guidance on the cluster
+  - Current road, remaining distance, and arrival time in the cluster's lower info bar
+- Classic / Sport dynamic layout adaptation
+- Global centering
+- Left steering-wheel scroll-wheel zoom
 - STATUS diagnostics
 - Safe installation and recovery
 - Protection against interrupted installation / recovery
 - Restoration of stock configuration
 - Logs and SD-card backups
-- Core display path vehicle-validated on **China-region AUG22 firmware**
-- Classic / Sport dynamic layout adaptation
-- Global centering
-- Left steering-wheel scroll-wheel zoom
 
-## Not yet included in the current public release
+## Compatibility
 
-- More complete RGI navigation-data integration
+| Item | Status |
+|---|---|
+| Platform | **MHI2Q** only; MHI2 is not supported |
+| Firmware version | **AUG22**; the installer checks the head unit's firmware version and refuses anything other than AUG22 |
+| China-region (CN) firmware | ✅ Vehicle-tested and works normally |
+| US / ER and other regional firmware | ⚠️ May have unknown bugs; not guaranteed to work 100% |
 
-These features will be added gradually to later public releases according to stability, compatibility, and cleanup progress. **Adaptation for the MHI2 platform and for US / ER or other regional firmware variants is currently outside the scope of this project.**
+---
 
+## How it works and architecture
 
-### Installation and testing
+This project no longer relies on the early Window58 readback route. It connects directly to CarPlay's **private type111** secondary-display video stream: the stock AirPlay / OMX decoding path is kept, frames are safely read from the stock renderer and linearized into standard NV12, handed to a separate display process, and finally shown on the cluster through GLES / displayable3 / Java Context80. Full RGI receives navigation data through iAP2 RouteGuidance, and the Java HMI distributes it to the cluster's lower info bar and to a separate maneuver renderer.
+
+### Architecture diagram
+
+```mermaid
+flowchart TB
+    iPhone["iPhone CarPlay"]
+
+    subgraph DIO["dio_manager"]
+        OMX["Stock OMX decoder + renderer"]
+        ALT["libcarplay_altscreen.so<br/>secondary display · viewArea<br/>wheel zoom → changeMapZoomLevel"]
+        RGIM["libcarplay_rgi_meta.so<br/>iAP2 RouteGuidance"]
+    end
+
+    SHM[("/carplay111_decoded<br/>NV12 shared memory")]
+
+    subgraph HMI["Java HMI"]
+        BUS["CarplayBus<br/>TCP 19810"]
+        RG["RouteGuidance"]
+        BAP["BAPBridge / LowerBarKomo"]
+        RS["RendererServer<br/>TCP 19800"]
+        CSC["ClusterStateController<br/>Context80"]
+        WZ["WheelZoomBridge"]
+    end
+
+    subgraph SIDE["Sidecars"]
+        MIR["carplay-alt111-mirror-display<br/>secondary display · startup logo"]
+        MR["maneuver_render<br/>maneuver arrows · lane guidance"]
+    end
+
+    VC["Virtual Cockpit"]
+
+    iPhone -- "type111 secondary video" --> OMX
+    iPhone -- "iAP2 navigation data" --> RGIM
+    ALT -. "safe frame readback" .-> OMX
+    OMX --> SHM --> MIR
+    RGIM -- "TCP" --> BUS --> RG
+    RG --> BAP
+    RG --> RS -- "TCP" --> MR
+    WZ -- "wheel event queue" --> ALT
+    MIR -- "displayable3 · map" --> VC
+    MR -- "displayable 98 · arrows" --> VC
+    BAP -- "road / distance / arrival" --> VC
+    CSC -- "switches Context80" --> VC
+```
+
+### Secondary-display path
+
+```text
+iPhone CarPlay
+  ↓
+private type111 secondary-display video stream
+  ↓
+Stock AirPlay / OMX decoding
+  ↓
+QNX Screen readback + linearization → standard NV12 (/carplay111_decoded)
+  ↓
+Separate display process (carplay-alt111-mirror-display)
+  ↓
+GLES / displayable3 (1440×542 source shown 1:1 on the 1440×455 cluster plane)
+  ↓
+Java/HMI Context80
+  ↓
+Virtual Cockpit
+```
+
+- The main CarPlay display (Main110) stays on the stock path and is not part of this display path.
+- No extra decoder is introduced; the stock decoding path that already works on MHI2Q is reused to keep new variables to a minimum.
+- The FULL / SMALL view areas switch dynamically within the same CarPlay session through the standard `updateViewArea`; the Classic / Sport layout follows the head unit's HMI state.
+- Java/HMI is the only owner of Context80; the display process does not change the cluster Context directly.
+
+### RGI navigation-data path
+
+- `libcarplay_rgi_meta.so` receives iAP2 RouteGuidance data inside the stock CarPlay process and passes it to the Java HMI over local TCP port 19810.
+- The Java HMI writes the current road, remaining distance, and arrival time into the cluster's lower info bar, and hands the bar back to the stock display when there is no valid CarPlay data.
+- Maneuver arrows and lane guidance are sent over local TCP port 19800 to the separate `maneuver_render` process, which draws them on displayable 98. The process is supervised by `rgi_supervisor.sh` and restarted a limited number of times if it exits unexpectedly.
+
+### Steering-wheel zoom
+
+The Java HMI captures the left steering-wheel scroll events and writes them to an event queue. `libcarplay_altscreen.so` steps toward the target zoom level by sending standard `changeMapZoomLevel` requests to the iPhone, pacing them by fresh secondary-display frames.
+
+---
+
+## Source layout and building
+
+Starting with V3.7, all source code is in this repository:
+
+| Path | Contents | Output |
+|---|---|---|
+| `Toolbox/carplay_alt_screen/src/` | Preload hook for the stock CarPlay process: private111 secondary display, frame readback, viewArea, wheel zoom | `universal/libcarplay_altscreen.so` |
+| `Toolbox/carplay_alt_screen/mirror_display/` | Secondary-display process (C++ / GLES / displayable3) with the embedded startup logo | `mirror_display/release/carplay-alt111-mirror-display` |
+| `Toolbox/carplay_alt_screen/rgi_native/` | RGI preload hook: iAP2 RouteGuidance parsing and forwarding | `rgi_meta/libcarplay_rgi_meta.so` |
+| `Toolbox/carplay_alt_screen/rgi_renderer/` | Maneuver-arrow / lane-guidance renderer | `rgi_renderer/release/maneuver_render` |
+| `Toolbox/carplay_alt_screen/hmi/` | Java HMI hook: Context80, cluster layers, RGI distribution, wheel events; `stubs/` holds compile-only stock API stubs and `vendor/` the baseline JAR | `hmi/carplay_hook-basevideo3.jar` |
+| `Toolbox/scripts/` | Install / start / status / restore / diagnostic scripts | Used from the SD card; the green-menu file ships in the Releases package |
+| `Tools/`, `BUILD-*.sh` | Build and verification tools | — |
+
+Building requires the QNX 6.5.0 SDP ARM cross toolchain (`arm-unknown-nto-qnx6.5.0eabi-gcc`):
+
+```sh
+sh BUILD-UNIVERSAL-QNX.sh      # secondary-display hook → libcarplay_altscreen.so
+sh BUILD-MIRROR-QNX.sh         # secondary-display process → carplay-alt111-mirror-display
+bash Tools/build_rgi_qnx.sh    # RGI hook + renderer → libcarplay_rgi_meta.so, maneuver_render
+```
+
+Build output goes to `dev-build/` or `mirror_display/build/` (not tracked in git) and does not overwrite the vehicle files in `release/`. When you replace vehicle files, also update the matching `BUILD_INFO.txt`, `SHA256SUMS`, and the root `SHA256SUMS-SD.txt`.
+
+---
+
+## Installation and testing
 
 > [!IMPORTANT]
 > **This repository is now an AltScreen overlay only. It no longer contains the complete MIB2 Toolbox installer.**
@@ -73,25 +187,26 @@ These features will be added gradually to later public releases according to sta
 > - **This project itself cannot be installed directly through the red software-update menu.**
 > - After the upstream Toolbox is working, load this project through **`MQBCoding → Update Toolbox`** in the green menu.
 > - If `Update Toolbox` reports `Script not found` or `/eso/hmi/engdefs/scripts/mqb/update_toolbox.sh` is missing, repair/reinstall the upstream Toolbox first.
+> - **When upgrading from an older version of this project, you must restore first and then install.** Follow section 8; do not run `INSTALL` directly over an older version.
 
 ### 1. Confirm that the upstream MIB2 Toolbox works
 
-1. Check the head unit's firmware version. This project targets **AUG22** firmware accepted by the installer's checks. Stop if the version differs or cannot be confirmed; do not bypass the checks.
+1. Check that the head unit's firmware version is **AUG22**. The installer verifies the firmware version and refuses non-AUG22 firmware. Stop if the version differs or cannot be confirmed; do not bypass the checks. For firmware outside the China region, read "Compatibility" above first.
 2. Park the vehicle and maintain stable power. Back up the current SD card and stock files, then prepare a writable **FAT32** SD card. If the old card contains `MMI-Cockpit-Carplay`, preserve that entire directory when changing cards because it contains stock backups needed for restoration.
 3. If `Green Developer Menu → MQBCoding` already works and **`Update Toolbox` runs normally without a Script not found error**, skip directly to section 2.
 4. If the upstream Toolbox is not installed, or the green menu exists but `Update Toolbox` is broken / missing its script, download and extract the latest complete **[jilleb/mib2-toolbox](https://github.com/jilleb/mib2-toolbox)** package. Copy the **contents** of that upstream package to the SD-card root without an extra ZIP-name folder.
-5. Insert only that SD card in the head unit. Enter the red menu and select `Software updates/versions → Update → SD card → MQB Coding MIB2 Toolbox`. Wait for the update and all automatic reboots to finish; keep the card inserted and power stable.
-6. After reboot, open `Green Developer Menu → MQBCoding` and confirm that **`Update Toolbox` runs normally**. If the upstream package is not recognized, check FAT32 format, root layout, and the upstream instructions. Stop if it is still rejected.
+5. Insert only that SD card in the head unit. Enter the red menu and select `Software updates/versions → Update → SD card → MQB Coding MIB2 Toolbox`. Wait for the update and all automatic reboots to finish; do not remove the card or cut power early.
+6. After reboot, open `Green Developer Menu → MQBCoding` and confirm that **`Update Toolbox` runs normally**. If the upstream package is not recognized, check FAT32 format, root layout, and the upstream instructions. Stop if it is still rejected; do not force-flash it.
 
 ### 2. Merge this project overlay into the upstream Toolbox SD card
 
 1. Keep the **complete upstream MIB2 Toolbox SD-card contents**. Do not delete its `metainfo2.txt`, `Toolbox/final/`, `Toolbox/GEM/mqb-main.esd`, `Toolbox/scripts/update_toolbox.sh`, or other upstream files.
-2. Download and extract this repository. These are compiled vehicle overlay files; **you do not need to copy source code or build directories**. Merge this repository's **`Toolbox/` directory into the existing `Toolbox/` directory on the SD card**:
+2. Download the package from this repository's [Releases](https://github.com/yuedizhibo/MHI2Q-CarPlay-AltScreen/releases) page and extract it. These are compiled vehicle overlay files; **you do not need to copy source code or build directories**. Merge the package's **`Toolbox/` directory into the existing `Toolbox/` directory on the SD card**:
    - Replace same-name files with this project's versions.
    - Keep all upstream-only files.
-   - When upgrading from an older project build, delete the old `logo.rgba` and `watermark.rgba` from `Toolbox/carplay_alt_screen/mirror_display/release/` on the card; the new binary does not use them.
+   - When upgrading from an older project build (after completing the restore in section 8), delete the old `logo.rgba` and `watermark.rgba` from `Toolbox/carplay_alt_screen/mirror_display/release/` on the card; the new binary does not use them.
    - **Do not wipe the upstream Toolbox first, and do not treat this repository as a standalone red-menu update package.**
-3. You may also copy `SD_CARD_README.txt` and `SHA256SUMS-SD.txt` to the SD-card root. If changing cards, also preserve the complete `MMI-Cockpit-Carplay` stock-backup directory.
+3. Also copy `SHA256SUMS-SD.txt` from the package root to the SD-card root for the check in the next step. If changing cards, also preserve the complete `MMI-Cockpit-Carplay` stock-backup directory.
 4. The resulting layout should look like:
 
 ```text
@@ -106,11 +221,10 @@ SD card root/
 │  │  ├─ update_toolbox.sh        ← keep from upstream Toolbox
 │  │  └─ ...AltScreen scripts...  ← this project
 │  └─ carplay_alt_screen/         ← this project payload
-├─ SD_CARD_README.txt
 └─ SHA256SUMS-SD.txt
 ```
 
-5. Do not add an extra `SD卡/Toolbox/` or `MHI2Q-CarPlay-AltScreen/Toolbox/` directory level.
+5. Do not add an extra `SD card/Toolbox/` or `MHI2Q-CarPlay-AltScreen/Toolbox/` directory level.
 6. From the SD-card root, run:
 
 ```sh
@@ -146,56 +260,105 @@ In the `MMI-Cockpit-Carplay` menu, follow this order and let each action finish 
 
 1. **Disconnect the iPhone / CarPlay** so navigation video is not playing during installation.
 2. Select `INSTALL`. Wait until it finishes. After `INSTALL=PASS` and `reboot_required=YES`, **fully reboot the head unit**. If it reports `FAIL`, record the message and stop.
-3. After reboot, select `START`. Wait for `START=PASS` and `reboot_required=YES`, then **fully reboot the head unit again**.
-4. After the second reboot, connect the iPhone, enter CarPlay, and start navigation. Check whether the Virtual Cockpit shows the secondary display and updates with navigation. Once valid secondary-display video arrives, the startup logo appears centered at 80% of its previous size for about two seconds. During operation, the original “Free and open source, resale prohibited” watermark from the sister project drifts and bounces within the visible video area at the reference program's frame-based rate. The startup logo is not the vehicle boot logo.
+3. After reboot, select `START`. Wait for `START=PASS` and `reboot_required=YES`, then **fully reboot the head unit again**. If it fails, do not skip ahead to connecting the phone.
+4. After the second reboot, connect the iPhone, enter CarPlay, and start navigation. Check whether the Virtual Cockpit shows the secondary display and updates with navigation.
+
+> [!NOTE]
+> Packages published on GitHub Releases show a startup watermark when the secondary display starts. This is expected. It is not the vehicle boot logo.
 
 ### 5. Check status and troubleshoot
 
 - With CarPlay navigation running, open `STATUS`. `PHYSICAL_ROUTE_READY=SOFTWARE_CHAIN_COMPLETE` means the script observed the video decoding, display path, Context 80, and other required software conditions; you must still **visually confirm the image on the Virtual Cockpit**. `PHYSICAL_ROUTE_READY=NO` means the required conditions are not all present; check the missing items shown in the output.
 - If the `MMI-Cockpit-Carplay` menu is missing, first confirm that the upstream green menu works, the SD-card directory layout is correct, and `MQBCoding → Update Toolbox` completed successfully.
 - If `Update Toolbox` itself reports `Script not found`, that is an upstream Toolbox base-installation problem rather than an AltScreen installer problem. Repair the upstream Toolbox through the red software-update menu first.
-- If the SD card is not detected, check FAT32, root layout, and read/write status. If `STATUS` is not ready, confirm that CarPlay is connected and navigation is producing video before collecting logs; do not repeatedly force `START`.
+- If the SD card is not detected, check FAT32, root layout, and read/write status. If `STATUS` is not ready, confirm that CarPlay is connected and navigation is producing video, then record the status and logs; do not repeatedly force `START`.
 - `STORE LOGS + RESTORE` tries to collect diagnostics and **then immediately restores the stock configuration**. It is not a logs-only action. If you want to keep the AltScreen runtime installed and active, do not select it.
 
-### 6. Restore the stock configuration
+### 6. Logs
+
+- Runtime logs are kept on the head unit in `/tmp/MMI-Cockpit-Carplay/`. They cover private111 connect / teardown, H.264, Screen readback, decoded SHM, display frame rate, displayable3, Context80, view-area and layout state, and system diagnostics such as CPU, temperature, and memory.
+- The RGI renderer logs to `/tmp/maneuver_render.log`.
+- After `STORE LOGS + RESTORE`, logs are saved to the `MMI-Cockpit-Carplay/logs/` directory on the SD card.
+- When something goes wrong, save the complete logs before changing any configuration or code. When reporting an issue, attach the logs and include the firmware version and region, the Classic / Sport and FULL / SMALL layout, and how the phone was connected (phone plugged in before the head unit started / after it fully started / quick reconnect).
+
+### 7. Restore the stock configuration
 
 1. Insert the SD card that retains the `MMI-Cockpit-Carplay` stock-backup directory. Select `RESTORE ORIGINAL`, or `STORE LOGS + RESTORE` if you want to collect logs before restoring.
-2. Wait for `RESTORE=PASS` and `reboot_required=YES`, then fully reboot the head unit. Restore removes this project's HMI JAR and restores the related stock configuration.
+2. Wait for `RESTORE=PASS` and `reboot_required=YES`, then fully reboot the head unit. Restore stops the display process, releases the Context80 display demand, removes the startup entries, removes this project's HMI JAR, and restores the HMI files and preload configuration saved before installation.
 3. If installation or restore was interrupted, runtime operation remains disabled. Keep the original backup card, run `RESTORE ORIGINAL` again, confirm that restoration succeeds, and only then consider running `INSTALL` again. Do not run `START` while restoration is incomplete.
 
-See the [SD card instructions](SD_CARD_README.txt) for additional runtime notes. Changing head-unit system files can cause a blank screen or require recovery.
+### 8. Upgrade from an older version
 
-### Licensing, authors, and third-party files
+Upgrading requires **restoring first, then installing**. Do not run `INSTALL` directly over an older version that is still active:
 
-This project is developed by [yuedizhibo](https://github.com/yuedizhibo) and [Lanye-z](https://github.com/Lanye-z). The repository-root [PolyForm Noncommercial 1.0.0 license](LICENSE) applies only to original material that the relevant rights holders are entitled to publish under those terms: non-commercial use, modification, and redistribution are permitted, while commercial use requires separate permission from the relevant rights holders. This repository provides runtime binaries, installation scripts, and documentation; it does not publish the C/C++ source used to build the QNX binary. Because commercial use is restricted, the license is not open source under the OSI definition.
+1. Disconnect the iPhone / CarPlay and insert the SD card that retains the `MMI-Cockpit-Carplay` stock-backup directory.
+2. In the existing `MMI-Cockpit-Carplay` menu on the head unit, run `RESTORE ORIGINAL`. Wait for `RESTORE=PASS` and `reboot_required=YES`, then fully reboot the head unit. If the restore fails, stop the upgrade, keep the backup card, and record the message.
+3. After a successful restore, merge the new overlay into the SD card as described in section 2, and delete the leftover `logo.rgba` and `watermark.rgba` from the old version. Keep the `MMI-Cockpit-Carplay` directory on the card intact.
+4. Run `Update Toolbox` as described in section 3, then follow section 4: `INSTALL` → full reboot → `START` → full reboot.
 
-The runtime watermark pixels come from [Lanye-z’s MMI Mirror project](https://github.com/Lanye-z/MHI2Q-CarPlay-MMI-Mirror), retaining the original 196×32 dimensions, with the current maximum opacity reduced to approximately 10%. Third-party files retain their existing licenses. Preserve the upstream MIB2 Toolbox [MIT license](LICENSE.TOOLBOX-MIT) and the mirror runtime's [separate license](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR).
-
-Research and implementation references:
-
-- [LIVI](https://github.com/f-io/LIVI): research reference for CarPlay main-display and instrument-cluster secondary-display protocol behavior.
-- [mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi): reference for MHI2Q CarPlay navigation guidance, HMI, and instrument-cluster interaction.
-- [MIB2 High Toolbox](https://github.com/jilleb/mib2-toolbox): upstream project for the SD-card toolchain, engineering menu, and scripts.
+Changing head-unit system files can cause a blank screen or require recovery.
 
 ---
 
-# Version status
+## Contributing
+
+**V3.7 is fully open source, and everyone is welcome to help maintain the project, fix issues, and add new features.**
+
+- Report problems through Issues, with complete logs, the firmware version and region, the layout, and how the phone was connected.
+- Submit fixes and new features through Pull Requests; see "Source layout and building" above for how to build. Vehicle test results on US / ER and other regional firmware are also welcome and help widen the validated scope.
+- In a pull request, describe the test vehicle, firmware version, test steps, and results.
+- Change one layer at a time: do not introduce a new decoder, a new Context, and broad display-structure changes in the same change, or it becomes hard to tell which layer caused a problem.
+- Vehicle tests should cover cold start (phone plugged in before the head unit started / after it fully started / quick reconnect) and the four Classic / Sport × FULL / SMALL layouts, and confirm that `RESTORE ORIGINAL` still restores correctly.
+- Contributed code is released with this project under GPL-3.0.
+
+---
+
+## Licensing, authors, and third-party files
+
+This project is developed by [yuedizhibo](https://github.com/yuedizhibo) and [Lanye-z](https://github.com/Lanye-z). **V3.7 is fully open source**: this repository publishes all C/C++ source code, runtime binaries, installation scripts, and documentation, and the whole project is released under the **[GNU General Public License v3.0](LICENSE)** (GPL-3.0).
+
+The GPL-3.0 allows anyone to use, study, modify, and redistribute this project, including for commercial purposes. Anyone who redistributes binaries or modified versions must provide the complete corresponding source under GPL-3.0 and keep the existing copyright and license notices.
+
+| Part | Origin | License |
+|---|---|---|
+| Secondary-display path (`src/`, `mirror_display/`), install / restore / diagnostic scripts, green menu, documentation, etc. | Original to this project | GPL-3.0 |
+| Java HMI and full RGI (`hmi/`, `rgi_native/`, `rgi_renderer/`) | Built on [Luka's mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi); renderer merged from [Allemon/mib2-carplay-rgi-altscreen](https://github.com/Allemon/mib2-carplay-rgi-altscreen) | GPL-3.0 |
+| Upstream MIB2 Toolbox files | [jilleb/mib2-toolbox](https://github.com/jilleb/mib2-toolbox) | [MIT](LICENSE.TOOLBOX-MIT), GPL-3.0 compatible |
+| Mirror runtime component | [Lanye-z's MMI Mirror](https://github.com/Lanye-z/MHI2Q-CarPlay-MMI-Mirror) | [Unlicense](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR), GPL-3.0 compatible |
+
+Other third-party files shipped with the source (such as `stb_image.h` and the Unicode data file) keep their own licenses. Keep the original license notices of third-party files.
+
+---
+
+## Version status
 
 Current recommended version:
 
 ~~~text
 main
-└── AUG22 / V3.5Fix2
-    └── Vehicle validated on China-region firmware
+└── AUG22 / V3.7
+    ├── China-region (CN) firmware: vehicle-tested and working
+    └── Other regional firmware: may have unknown bugs; not guaranteed to work 100%
 ~~~
 
-The current public release prioritizes stable installation, normal use, and reliable recovery. Additional features will be introduced in stages.
+The current public release prioritizes stable installation, normal use, and reliable recovery.
 
 ---
 
-# Public-release notice
+## Public-release notice
 
-The repository currently publishes the installable runtime package and related documentation. It does not mean that every feature from the complete development version has been released at once.
+Starting with V3.7, the project is fully open source: every feature, all source code, the installable runtime package, and related documentation are public and released under GPL-3.0.
 
-> **Shared free of charge. Reselling is prohibited.**
+> **Shared free of charge: this project is available for free on GitHub; do not pay for it.**
 
+---
+
+## Acknowledgements
+
+Thanks to the following projects and authors, whose work this project builds on:
+
+- [Luka](https://github.com/luka-dev)'s [mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi): the foundation of the full RGI navigation-data integration and the Java HMI, and reference for MHI2Q CarPlay navigation guidance, HMI, and instrument-cluster interaction.
+- [Allemon](https://github.com/Allemon)'s [mib2-carplay-rgi-altscreen](https://github.com/Allemon/mib2-carplay-rgi-altscreen): upstream implementation of the RGI maneuver renderer.
+- [LIVI](https://github.com/f-io/LIVI): research reference for CarPlay main-display and instrument-cluster secondary-display protocol behavior.
+- [jilleb](https://github.com/jilleb)'s [MIB2 High Toolbox](https://github.com/jilleb/mib2-toolbox): upstream project for the SD-card toolchain, engineering menu, and scripts.
+- Everyone who tested in a vehicle, reported issues, and shared logs.
