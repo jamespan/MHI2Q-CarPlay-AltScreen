@@ -10,6 +10,7 @@ PIDFILE=$TMP_ROOT/altscreen_rgi_supervisor.pid
 CHILDFILE=$TMP_ROOT/altscreen_rgi_renderer.pid
 LOG=$TMP_ROOT/maneuver_render.log
 DISABLED=$TMP_ROOT/mmi-rgi.disabled
+PERSISTENT_DISABLED=$HERE/../../state/rgi.disabled
 STOP=$TMP_ROOT/altscreen_mirror.stop.requested
 MAX_RESTARTS=${RGI_MAX_RESTARTS:-3}
 if [ -d /proc/boot ] && [ -d /mnt/app ]; then
@@ -22,6 +23,10 @@ if ! : >> "$LOG"; then
   exit 2
 fi
 case "$MAX_RESTARTS" in ''|*[!0-9]*) log "RGI_SUPERVISOR=FAIL reason=invalid_restart_limit"; exit 2 ;; esac
+if [ -f "$PERSISTENT_DISABLED" ] || [ -f "$DISABLED" ]; then
+  log "RGI_SUPERVISOR=DISABLED install_mode=NO"
+  exit 0
+fi
 [ -x "$BIN" ] || { log "RGI_SUPERVISOR=FAIL reason=missing_renderer path=$BIN"; exit 2; }
 if [ "${1:-}" != --lease-held ]; then
   log "RGI_SUPERVISOR=ATTEMPT renderer=$BIN lease=kernel_socket no_tmp_directory=1"
@@ -52,7 +57,7 @@ trap 'exit 0' 1 2 15
 printf '%s\n' "$OWNER" > "$PIDFILE" || { log "RGI_SUPERVISOR=FAIL stage=pid_publish"; exit 2; }
 failures=0
 log "RGI_SUPERVISOR=STARTED owner=$OWNER restart_limit=$MAX_RESTARTS"
-while [ ! -f "$DISABLED" ] && [ ! -f "$STOP" ]; do
+while [ ! -f "$PERSISTENT_DISABLED" ] && [ ! -f "$DISABLED" ] && [ ! -f "$STOP" ]; do
   started=$(date +%s)
   (cd "${BIN%/*}" && LD_PRELOAD= exec "$BIN") >> "$LOG" 2>&1 &
   child=$!
@@ -61,7 +66,7 @@ while [ ! -f "$DISABLED" ] && [ ! -f "$STOP" ]; do
   wait "$child" || rc=$?
   child=""
   rm -f "$CHILDFILE"
-  [ ! -f "$DISABLED" ] && [ ! -f "$STOP" ] || break
+  [ ! -f "$PERSISTENT_DISABLED" ] && [ ! -f "$DISABLED" ] && [ ! -f "$STOP" ] || break
   elapsed=$(($(date +%s)-started))
   [ "$elapsed" -lt 60 ] || failures=0
   failures=$((failures+1))

@@ -97,6 +97,7 @@ public class BAPBridge {
     /* Distance policy controls both HUD descriptors and the GPU arrow. */
     private boolean inApproachZone = false;
     private boolean showRealManeuver = false;
+    private String lastManeuverMappingDiagnostic;
     private boolean startupFramePending = true;
     private final LowerBarKomo lowerBarKomo = new LowerBarKomo();
     /* Track the primary maneuver's slot identity so we know when iOS
@@ -930,7 +931,7 @@ public class BAPBridge {
             int distM = s.distManeuverM;
             int[] idxs = getManeuverIndexList(s);
             boolean hasManeuverList = (idxs != null && idxs.length > 0);
-            boolean hasAnyManeuver = (s.maneuverCount > 0);
+            boolean hasAnyManeuver = hasManeuverList || (s.maneuverCount > 0);
             boolean shouldClearManeuver = (s.maneuverCount == 0) && (s.routeState <= 0);
 
             int firstIdx = primaryManeuverIndex(s);
@@ -2160,11 +2161,25 @@ public class BAPBridge {
 
         try {
             int firstIdx = primaryManeuverIndex(s);
-            if (firstIdx < 0 || s.maneuverCount == 0) return false;
+            // The native list contains only cached, typed current slots. The
+            // independent optional count may remain zero after a route reset.
+            // A missing/empty list and route shutdown are handled by the caller.
+            if (firstIdx < 0) return false;
             int[] bap = mapManeuver(s, firstIdx);
             RendererMapper.Mapping mapped = ManeuverDistancePolicy.map(showRealManeuver, bap,
                 s.mDrivingSide[firstIdx], s.mType[firstIdx], s.mTurnAngle[firstIdx],
                 anglePresent(s, firstIdx), s.mJunctionAngles[firstIdx]);
+            String diagnostic = s.routeGeneration + "/" + firstIdx + "/" + s.mVer[firstIdx]
+                + "/" + s.maneuverCount + "/" + s.mType[firstIdx] + "/"
+                + s.mJunctionType[firstIdx] + "/" + showRealManeuver + "/" + mapped.icon;
+            if (!diagnostic.equals(lastManeuverMappingDiagnostic)) {
+                lastManeuverMappingDiagnostic = diagnostic;
+                Log.i(TAG, "RGI_MAPPING slot=" + firstIdx + " version=" + s.mVer[firstIdx]
+                    + " count=" + s.maneuverCount + " type=" + s.mType[firstIdx]
+                    + " junction=" + s.mJunctionType[firstIdx]
+                    + " distance_m=" + s.distManeuverM + " real=" + showRealManeuver
+                    + " bap_main=" + bap[0] + " renderer_icon=" + mapped.icon);
+            }
             int icon = mapped.icon;
             int direction = mapped.direction;
             int exitAngle = mapped.exitAngle;

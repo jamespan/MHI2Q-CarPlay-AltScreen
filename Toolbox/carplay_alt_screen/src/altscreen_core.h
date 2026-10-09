@@ -17,7 +17,7 @@
  * transport, decoder, SHM ABI, renderer geometry, Context80, or wheel control.
  */
 #define CP_ALT_CLUSTER_MAP_URL \
-    "maps:/car/instrumentcluster/map?showSpeedLimit=user&showCompass=user&showETA=yes&maneuverLayout="
+    "maps:/car/instrumentcluster/map?showSpeedLimit=user&showCompass=user&showETA=no&maneuverLayout="
 
 struct altscreen_display {
     const char *uuid;

@@ -406,6 +406,22 @@ verify_installed(){
     { log "INSTALL_VERIFY=FAIL reason=PACKAGE_ARTIFACT_MISSING"; return 1; }
   same "$JAR_SOURCE" "$JAR" ||
     { log "INSTALL_VERIFY=FAIL reason=HMI_JAR_MISMATCH"; return 1; }
+  same "$VOLUME/Toolbox/carplay_alt_screen/hmi/BUILD_INFO.txt" "$RUNTIME/state/hmi-build-info.txt" ||
+    { log "INSTALL_VERIFY=FAIL reason=HMI_IDENTITY_METADATA_MISMATCH"; return 1; }
+  case "${ALTS_INSTALL_RGI_MODE:-WITH}" in
+    NO)
+      [ -f "$RUNTIME/state/rgi.disabled" ] || { log "INSTALL_VERIFY=FAIL reason=NO_RGI_MARKER_MISSING"; return 1; }
+      if awk -v query=/mnt/app/root/carplay-altscreen/lib/libcarplay_rgi_meta.so -f "$PRELOAD_AWK" "$SI" >/dev/null 2>&1; then
+        log "INSTALL_VERIFY=FAIL reason=NO_RGI_PRELOAD_PRESENT"; return 1
+      fi
+      ;;
+    WITH)
+      [ ! -e "$RUNTIME/state/rgi.disabled" ] || { log "INSTALL_VERIFY=FAIL reason=WITH_RGI_DISABLED"; return 1; }
+      awk -v query=/mnt/app/root/carplay-altscreen/lib/libcarplay_rgi_meta.so -f "$PRELOAD_AWK" "$SI" >/dev/null 2>&1 ||
+        { log "INSTALL_VERIFY=FAIL reason=WITH_RGI_PRELOAD_MISSING"; return 1; }
+      ;;
+    *) log "INSTALL_VERIFY=FAIL reason=INVALID_RGI_MODE"; return 1 ;;
+  esac
   same "$UNIVERSAL_SOURCE" "$UNIVERSAL_DST" ||
     { log "INSTALL_VERIFY=FAIL reason=UNIVERSAL_HOOK_MISMATCH"; return 1; }
   same "$VOLUME/Toolbox/carplay_alt_screen/rgi_meta/libcarplay_rgi_meta.so" "$RUNTIME/lib/libcarplay_rgi_meta.so" ||

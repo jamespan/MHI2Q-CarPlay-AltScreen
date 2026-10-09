@@ -87,7 +87,7 @@ INSTALL_TXN_DIR="$SD_ROOT/install-transaction/active"
 RUNTIME_OWNER=.mmi-cockpit-carplay-runtime-owner
 RUNTIME_PUBLISHED=0
 RUNTIME_HAD_CURRENT=0
-RUNTIME_SCRIPTS="altscreen_chain_test.sh altscreen_chain_test_known.sh altscreen_chain_test_universal.sh altscreen_sd_writable.sh altscreen_install_transaction.sh altscreen_restore_transaction.sh altscreen_restore_apply.sh altscreen_persistent_diag.sh altscreen_adaptive_diag.sh altscreen_boot_diag.sh altscreen_live_diag.sh altscreen_preload.awk install_mmi_cockpit_carplay_rx.sh start_mmi_cockpit_carplay_test.sh start_mmi_cockpit_carplay_rx_test.sh force_start_mmi_cockpit_carplay_rx_test.sh stop_mmi_cockpit_carplay_test.sh status_mmi_cockpit_carplay_test.sh finish_mmi_cockpit_carplay_test.sh"
+RUNTIME_SCRIPTS="altscreen_chain_test.sh altscreen_chain_test_known.sh altscreen_chain_test_universal.sh altscreen_sd_writable.sh altscreen_install_transaction.sh altscreen_restore_transaction.sh altscreen_restore_apply.sh altscreen_persistent_diag.sh altscreen_adaptive_diag.sh altscreen_boot_diag.sh altscreen_live_diag.sh altscreen_preload.awk install_mmi_cockpit_carplay_rx.sh install_mmi_cockpit_carplay_no_rgi.sh install_mmi_cockpit_carplay_with_rgi.sh start_mmi_cockpit_carplay_test.sh start_mmi_cockpit_carplay_rx_test.sh force_start_mmi_cockpit_carplay_rx_test.sh stop_mmi_cockpit_carplay_test.sh status_mmi_cockpit_carplay_test.sh finish_mmi_cockpit_carplay_test.sh"
 
 mount_app_rw(){ [ "$TESTING" = 1 ] || mount -uw /mnt/app; }
 mount_app_ro(){ [ "$TESTING" = 1 ] || mount -ur /mnt/app; }
@@ -229,6 +229,17 @@ install_runtime_scripts(){
         rm -rf "$stale" 2>/dev/null || { mount_app_ro >/dev/null 2>&1 || true; return 1; }
     done
     ensure_dirs "$RUNTIME_STAGE/bin" "$RUNTIME_STAGE/lib" "$RUNTIME_STAGE/state" || { mount_app_ro >/dev/null 2>&1 || true; return 1; }
+    cp "$ARTIFACT_DIR/hmi/BUILD_INFO.txt" "$RUNTIME_STAGE/state/hmi-build-info.txt" &&
+    cmp -s "$ARTIFACT_DIR/hmi/BUILD_INFO.txt" "$RUNTIME_STAGE/state/hmi-build-info.txt" &&
+    chmod 644 "$RUNTIME_STAGE/state/hmi-build-info.txt" || {
+        rm -rf "$RUNTIME_STAGE" 2>/dev/null || true
+        mount_app_ro >/dev/null 2>&1 || true
+        return 1
+    }
+    if [ "${ALTS_INSTALL_RGI_MODE:-WITH}" = NO ]; then
+        : > "$RUNTIME_STAGE/state/rgi.disabled" || return 1
+        chmod 644 "$RUNTIME_STAGE/state/rgi.disabled" || return 1
+    fi
     echo "RUNTIME_STAGING_POLICY=BOUNDED path=/mnt/app/root/.carplay-altscreen.new legacy_pid_staging=reaped"
     for name in $RUNTIME_SCRIPTS; do
         src="$SD_SCRIPTS/$name"; dst="$RUNTIME_STAGE/bin/$name"
@@ -595,6 +606,7 @@ delegate_install(){
 CMD=${1:-}
 case "$CMD" in
   install)
+    case "${ALTS_INSTALL_RGI_MODE:-WITH}" in NO|WITH) ;; *) fail "invalid RGI install mode" ;; esac
     restore_transaction_active && fail "restore transaction is active; recover/finish RESTORE ORIGINAL before INSTALL"
     install_transaction_cleanup_terminal
     if install_transaction_active && [ "${ALTS_INSTALL_TXN_ACTIVE:-0}" != 1 ]; then

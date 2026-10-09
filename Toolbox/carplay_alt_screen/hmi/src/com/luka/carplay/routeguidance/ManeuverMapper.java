@@ -236,6 +236,16 @@ public class ManeuverMapper {
          * JunctionType gate (see comment above):
          * - For junctionType!=0, only allow the "roundabout exit" family for junctionType==1.
          */
+        // -1 is the Java slot's absent-field sentinel, not an explicit unknown
+        // junction sent by the phone. Keep definite turn semantics when that
+        // optional geometry has not arrived; roundabout families retain their
+        // type-specific mapping. Explicit unsupported values still yield NO_INFO.
+        if (junctionType == -1) {
+            junctionType = (maneuverType == MT_EXIT_ROUNDABOUT
+                || (maneuverType >= MT_ROUNDABOUT_EXIT_1
+                    && maneuverType <= MT_ROUNDABOUT_EXIT_19))
+                ? JUNCTION_ROUNDABOUT : JUNCTION_SINGLE_INTERSECTION;
+        }
         if (junctionType != JUNCTION_SINGLE_INTERSECTION) {
             if (junctionType != JUNCTION_ROUNDABOUT) {
                 mainElement = NO_INFO;

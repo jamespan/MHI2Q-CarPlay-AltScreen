@@ -513,6 +513,8 @@ check_sources(){
 }
 
 cmd_install(){
+    rgi_mode=${ALTS_INSTALL_RGI_MODE:-WITH}
+    case "$rgi_mode" in NO|WITH) ;; *) say "FAIL: invalid RGI install mode"; return 1 ;; esac
     lock_acquire
     ensure_dirs "$TXN_DIR" || { lock_release; return 1; }
     system_space_snapshot install_begin
@@ -532,7 +534,9 @@ cmd_install(){
         # AltScreen, so the final stable order is AltScreen:RGI:other-stock.
         cfg_rgi="$TXN_DIR/rgi-preload-config"
         cfg="$TXN_DIR/universal-config"
-        awk -v hook="$RGI_META_REL" \
+        rgi_preload="$RGI_META_REL"
+        [ "$rgi_mode" != NO ] || rgi_preload=""
+        awk -v hook="$rgi_preload" -v exclude2="$RGI_META_REL" -v allow_absent=1 \
             -v exclude=/mnt/app/root/hooks/libcarplay_hook.so \
             -v insert_if_absent=1 -f "$PRELOAD_AWK" "$(p "$LIVE_JSON_SI")" > "$cfg_rgi" || goto_fail=1
         if [ "${goto_fail:-0}" != 1 ]; then
@@ -546,13 +550,17 @@ cmd_install(){
         fi
         rm -f "$cfg_rgi" "$cfg"
     fi
-    if [ "${goto_fail:-0}" != 1 ]; then
+    if [ "${goto_fail:-0}" != 1 ] && [ "$rgi_mode" = WITH ]; then
         /bin/sh "$RGI_CONFIG" apply "$(p "$LIVE_JSON_DIO")" || goto_fail=1
     fi
     if [ "${goto_fail:-0}" != 1 ]; then
         awk -v query="$UNIVERSAL_REL" -f "$PRELOAD_AWK" "$(p "$LIVE_JSON_SI")" >/dev/null || goto_fail=1
-        awk -v query="$RGI_META_REL" -f "$PRELOAD_AWK" "$(p "$LIVE_JSON_SI")" >/dev/null || goto_fail=1
-        /bin/sh "$RGI_CONFIG" verify "$(p "$LIVE_JSON_DIO")" >/dev/null || goto_fail=1
+        if [ "$rgi_mode" = WITH ]; then
+            awk -v query="$RGI_META_REL" -f "$PRELOAD_AWK" "$(p "$LIVE_JSON_SI")" >/dev/null || goto_fail=1
+            /bin/sh "$RGI_CONFIG" verify "$(p "$LIVE_JSON_DIO")" >/dev/null || goto_fail=1
+        elif awk -v query="$RGI_META_REL" -f "$PRELOAD_AWK" "$(p "$LIVE_JSON_SI")" >/dev/null; then
+            goto_fail=1
+        fi
     fi
     if [ "${goto_fail:-0}" != 1 ]; then remove_legacy_firewall_rule || goto_fail=1; fi
     if [ "${goto_fail:-0}" = 1 ]; then
@@ -572,7 +580,7 @@ cmd_install(){
     cleanup_txn
     say "FIRMWARE_PROFILE=UNIVERSAL source=aug22_unified_policy stock_reuse=YES"
     say "UNIVERSAL_PRELOAD=INSTALLED path=$UNIVERSAL_REL resolver=ELF_DYNAMIC_RELOCATION"
-    say "V33_RGI_METADATA=INSTALLED path=$RGI_META_REL messages=0x5200-0x5204 lower_bar=19,21,22 map_scale=stock"
+    say "INSTALL_RGI_MODE=$rgi_mode native_preload=$rgi_preload reboot_required=YES"
     lock_release || return 1
     say "INSTALL=PASS reboot_required=YES"
 }

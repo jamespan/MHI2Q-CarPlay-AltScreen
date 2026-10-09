@@ -145,8 +145,11 @@ RUNTIME="$DEVICE_ROOT/mnt/app/root/carplay-altscreen"
 STATE="$RUNTIME/state"
 ENABLED="$STATE/basevideo3.enabled"
 JAR="$DEVICE_ROOT/mnt/app/eso/hmi/lsd/jars/carplay_hook.jar"
-EXPECTED_SIZE=202376
-EXPECTED_CKSUM=582294825
+HMI_INFO="$STATE/hmi-build-info.txt"
+EXPECTED_SIZE=$(sed -n 's/^jar_size=//p' "$HMI_INFO" 2>/dev/null || true)
+EXPECTED_CKSUM=$(sed -n 's/^jar_cksum=//p' "$HMI_INFO" 2>/dev/null || true)
+case "$EXPECTED_SIZE:$EXPECTED_CKSUM" in *[!0-9:]*|:*|*:) echo "FAIL: invalid installed HMI identity metadata; run INSTALL" >&2; exit 1 ;; esac
+[ "$EXPECTED_SIZE" -gt 0 ] || exit 1
 ACTIVE="$DEVICE_ROOT/tmp/mmi-mirror-active"
 READY="$DEVICE_ROOT/tmp/mmi-mirror-basevideo.ready"
 STARTED="$DEVICE_ROOT/tmp/mmi-mirror-controller.started"
@@ -499,7 +502,14 @@ else
 fi
 system_space_snapshot start_after_publish
 
-rm -f "$DEVICE_ROOT/tmp/mmi-rgi.disabled" "$DEVICE_ROOT/tmp/mmi-rgi.stopped" "$DEVICE_ROOT/tmp/altscreen_mirror.stop.requested" 2>/dev/null || fail "cannot enable RGI lifecycle"
+rm -f "$DEVICE_ROOT/tmp/mmi-rgi.stopped" "$DEVICE_ROOT/tmp/altscreen_mirror.stop.requested" 2>/dev/null || fail "cannot reset display lifecycle"
+if [ -f "$STATE/rgi.disabled" ]; then
+    : > "$DEVICE_ROOT/tmp/mmi-rgi.disabled" || fail "cannot disable RGI lifecycle"
+    echo "INSTALL_RGI_MODE=NO"
+else
+    rm -f "$DEVICE_ROOT/tmp/mmi-rgi.disabled" || fail "cannot enable RGI lifecycle"
+    echo "INSTALL_RGI_MODE=WITH"
+fi
 stage CURRENT_BOOT_DISPLAY_RESET
 rm -f "$READY" "$ACTIVE" 2>/dev/null || true
 READY_CLEARED=1

@@ -69,7 +69,7 @@ public class CarPlayHook {
         /* Kick the bus up front so every module has a live channel
          * to the hook before the first CarPlay event fires.
          * Idempotent. */
-        CarplayBus.getInstance().start();
+        if (!isRgiDisabled()) CarplayBus.getInstance().start();
 
         active = true;
         savedContext = context;
@@ -159,7 +159,7 @@ public class CarPlayHook {
         Object naviService = getNaviService(context);
         IDeviceManager deviceManager = getDeviceManager(context);
 
-        if (naviService == null || deviceManager == null) {
+        if (deviceManager == null || (!isRgiDisabled() && naviService == null)) {
             return false;
         }
 
@@ -168,8 +168,8 @@ public class CarPlayHook {
          * v38/iOS27 soft-inactive lifecycle compatibility; all current BAP,
          * renderer and stock-navigation handoff fixes remain in RouteGuidance
          * and BAPBridge. */
-        routeGuidance = new RouteGuidance();
-        if (!routeGuidance.init(naviService)) {
+        routeGuidance = isRgiDisabled() ? null : new RouteGuidance();
+        if (routeGuidance != null && !routeGuidance.init(naviService)) {
             Log.e(TAG, "RouteGuidance init failed");
             routeGuidance = null;
             return false;
@@ -242,7 +242,7 @@ public class CarPlayHook {
             ClusterStateController.setCarPlaySessionActive(carplay);
 
             if (carplay && activeState && selected
-                    && !new File("/tmp/mmi-rgi.disabled").exists()) {
+                    && !isRgiDisabled()) {
                 if (routeGuidance != null && !routeGuidance.isRunning()) {
                     routeGuidance.start();
                 }
@@ -275,9 +275,14 @@ public class CarPlayHook {
 
     /* The existing START/RESTORE scripts can stop RGI while this JVM is
      * still resident. Teardown finishes before the owned runtime is removed. */
+    private static boolean isRgiDisabled() {
+        return new File("/mnt/app/root/carplay-altscreen/state/rgi.disabled").exists()
+                || new File("/tmp/mmi-rgi.disabled").exists();
+    }
+
     public static synchronized void pollRgiRuntime() {
         RouteGuidance rg = routeGuidance;
-        if (new File("/tmp/mmi-rgi.disabled").exists()) {
+        if (isRgiDisabled()) {
             if (rg != null && rg.isRunning()) rg.stop();
             try { new File("/tmp/mmi-rgi.stopped").createNewFile(); }
             catch (Exception e) { Log.w(TAG, "RGI stop acknowledgement failed: " + e); }

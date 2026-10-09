@@ -7,9 +7,11 @@ struct StateSnapshotResult {
     bool published;
     const char *stage;
     int error;
+    bool atomic_replace;
 };
 
-/* A failed update must leave the last complete snapshot in place. */
+/* Regular files retain atomic replacement. QNX shared-memory names use a
+ * length/checksum envelope: readers must reject incomplete in-place updates. */
 StateSnapshotResult write_state_snapshot(const char *path, const char *data,
                                          size_t bytes);
 

@@ -1355,10 +1355,17 @@ public final class ClusterStateController {
             if (!f.exists() || maxBytes <= 0) return "";
             in = new FileInputStream(f);
             byte[] buf = new byte[maxBytes];
-            int n = in.read(buf);
+            int n = 0;
+            while (n < buf.length) {
+                int got = in.read(buf, n, buf.length - n);
+                if (got <= 0) break;
+                n += got;
+            }
             in.close();
             in = null;
             if (n <= 0) return "";
+            if (DISPLAYABLE3_STATE_FILE.equals(path))
+                return DisplayStateSnapshot.decode(buf, n);
             return new String(buf, 0, n, "UTF-8");
         } catch (Throwable t) {
             try { if (in != null) in.close(); } catch (Throwable ignored) {}

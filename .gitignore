@@ -59,6 +59,8 @@
 !/Toolbox/carplay_alt_screen/rgi_renderer/toolchain/qnx65-abi/include/**/*.h
 !/Toolbox/carplay_alt_screen/**/LICENSE*
 
+!/Toolbox/GEM/mqb-carplayAltScreen.esd
+
 # Exact SD runtime closure. Some installer/diagnostic filenames contain "test";
 # those are vehicle runtime scripts and must not be removed by a blanket test rule.
 !/Toolbox/carplay_alt_screen/hmi/BUILD_INFO.txt
@@ -93,6 +95,8 @@
 !/Toolbox/scripts/finish_mmi_cockpit_carplay_test.sh
 !/Toolbox/scripts/force_start_mmi_cockpit_carplay_rx_test.sh
 !/Toolbox/scripts/install_mmi_cockpit_carplay_rx.sh
+!/Toolbox/scripts/install_mmi_cockpit_carplay_no_rgi.sh
+!/Toolbox/scripts/install_mmi_cockpit_carplay_with_rgi.sh
 !/Toolbox/scripts/start_mmi_cockpit_carplay_rx_test.sh
 !/Toolbox/scripts/start_mmi_cockpit_carplay_test.sh
 !/Toolbox/scripts/status_mmi_cockpit_carplay_test.sh

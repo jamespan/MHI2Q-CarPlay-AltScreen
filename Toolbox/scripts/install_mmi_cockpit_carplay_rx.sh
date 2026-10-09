@@ -7,6 +7,10 @@
 # Window58 readback and RGI98 native renderer are not used by the sidecar.
 set -u
 
+ALTS_INSTALL_RGI_MODE=${ALTS_INSTALL_RGI_MODE:-WITH}
+case "$ALTS_INSTALL_RGI_MODE" in NO|WITH) ;; *) echo "INSTALL=REFUSED reason=INVALID_RGI_MODE" >&2; exit 2 ;; esac
+export ALTS_INSTALL_RGI_MODE
+
 # QNX compatibility: treat already-existing directories as success instead of
 # relying on target mkdir -p return semantics.
 ensure_dirs() {
@@ -125,8 +129,10 @@ JAR_SOURCE="$VOLUME/Toolbox/carplay_alt_screen/hmi/carplay_hook-basevideo3.jar"
 HMI_INFO="$VOLUME/Toolbox/carplay_alt_screen/hmi/BUILD_INFO.txt"
 JAR_TARGET="$DEVICE_ROOT/mnt/app/eso/hmi/lsd/jars/carplay_hook.jar"
 JAR_TARGET_DIR=$(dirname -- "$JAR_TARGET")
-EXPECTED_SIZE=202376
-EXPECTED_CKSUM=582294825
+EXPECTED_SIZE=$(sed -n 's/^jar_size=//p' "$HMI_INFO")
+EXPECTED_CKSUM=$(sed -n 's/^jar_cksum=//p' "$HMI_INFO")
+case "$EXPECTED_SIZE:$EXPECTED_CKSUM" in *[!0-9:]*|:*|*:) echo "FAIL: invalid HMI identity metadata" >&2; exit 1 ;; esac
+[ "$EXPECTED_SIZE" -gt 0 ] || exit 1
 
 [ -f "$CONTROLLER" ] || { echo "FAIL: chain controller missing: $CONTROLLER"; exit 127; }
 [ -s "$JAR_SOURCE" ] || { echo "FAIL: Java80 HMI JAR missing: $JAR_SOURCE"; exit 1; }
@@ -193,7 +199,7 @@ echo "PIXEL_TARGET=displayable3"
 echo "HMI_CONTEXT=ctx80"
 echo "WINDOW58_READBACK=DISABLED"
 echo "DIRECT_DISPLAY_SIDECAR=INCLUDED"
-echo "RGI98_NATIVE_RENDERER=NOT_INCLUDED"
+echo "INSTALL_RGI_MODE=$ALTS_INSTALL_RGI_MODE reboot_required=YES"
 
 echo "HMI_JAR_POLICY=PROJECT_OWNED install=CREATE_OR_REPLACE uninstall=DELETE permanent_oem_backup=NO rollback=INSTALL_TRANSACTION_SNAPSHOT"
 
