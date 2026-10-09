@@ -4,7 +4,7 @@
 
 This project is designed for the Audi **MHI2Q** platform and displays the **native CarPlay AltScreen / secondary navigation view** directly on the vehicle's **Virtual Cockpit**. The core display path has been verified in a vehicle. Read the [SD card instructions](SD_CARD_README.txt) before making changes to the head unit.
 
-**V3.7 update: full RGI navigation-data integration is now available, and the runtime watermark has been removed.**
+**V3.7 update: full RGI navigation-data integration is now available (built on [Luka's mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi)), and the runtime watermark has been removed.**
 
 > [!NOTE]
 > **Sister project: MMI Mirror**  
@@ -44,7 +44,7 @@ This project is designed for the Audi **MHI2Q** platform and displays the **nati
 
 - Native CarPlay AltScreen
 - The main CarPlay display remains available and unaffected
-- Full RGI navigation-data integration
+- Full RGI navigation-data integration (built on [Luka's mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi))
 - Classic / Sport dynamic layout adaptation
 - Global centering
 - Left steering-wheel scroll-wheel zoom
@@ -74,6 +74,7 @@ This project is designed for the Audi **MHI2Q** platform and displays the **nati
 > - **This project itself cannot be installed directly through the red software-update menu.**
 > - After the upstream Toolbox is working, load this project through **`MQBCoding → Update Toolbox`** in the green menu.
 > - If `Update Toolbox` reports `Script not found` or `/eso/hmi/engdefs/scripts/mqb/update_toolbox.sh` is missing, repair/reinstall the upstream Toolbox first.
+> - **When upgrading from an older version of this project, you must restore first and then install.** Follow section 7; do not run `INSTALL` directly over an older version.
 
 ### 1. Confirm that the upstream MIB2 Toolbox works
 
@@ -90,7 +91,7 @@ This project is designed for the Audi **MHI2Q** platform and displays the **nati
 2. Download the package from this repository's [Releases](https://github.com/yuedizhibo/MHI2Q-CarPlay-AltScreen/releases) page and extract it. These are compiled vehicle overlay files; **you do not need to copy source code or build directories**. Merge the package's **`Toolbox/` directory into the existing `Toolbox/` directory on the SD card**:
    - Replace same-name files with this project's versions.
    - Keep all upstream-only files.
-   - When upgrading from an older project build, delete the old `logo.rgba` and `watermark.rgba` from `Toolbox/carplay_alt_screen/mirror_display/release/` on the card; the new binary does not use them.
+   - When upgrading from an older project build (after completing the restore in section 7), delete the old `logo.rgba` and `watermark.rgba` from `Toolbox/carplay_alt_screen/mirror_display/release/` on the card; the new binary does not use them.
    - **Do not wipe the upstream Toolbox first, and do not treat this repository as a standalone red-menu update package.**
 3. You may also copy `SD_CARD_README.txt` and `SHA256SUMS-SD.txt` to the SD-card root. If changing cards, also preserve the complete `MMI-Cockpit-Carplay` stock-backup directory.
 4. The resulting layout should look like:
@@ -167,20 +168,31 @@ In the `MMI-Cockpit-Carplay` menu, follow this order and let each action finish 
 2. Wait for `RESTORE=PASS` and `reboot_required=YES`, then fully reboot the head unit. Restore removes this project's HMI JAR and restores the related stock configuration.
 3. If installation or restore was interrupted, runtime operation remains disabled. Keep the original backup card, run `RESTORE ORIGINAL` again, confirm that restoration succeeds, and only then consider running `INSTALL` again. Do not run `START` while restoration is incomplete.
 
+### 7. Upgrade from an older version
+
+Upgrading requires **restoring first, then installing**. Do not run `INSTALL` directly over an older version that is still active:
+
+1. Disconnect the iPhone / CarPlay and insert the SD card that retains the `MMI-Cockpit-Carplay` stock-backup directory.
+2. In the existing `MMI-Cockpit-Carplay` menu on the head unit, run `RESTORE ORIGINAL`. Wait for `RESTORE=PASS` and `reboot_required=YES`, then fully reboot the head unit. If the restore fails, stop the upgrade, keep the backup card, and record the message.
+3. After a successful restore, merge the new overlay into the SD card as described in section 2, and delete the leftover `logo.rgba` and `watermark.rgba` from the old version. Keep the `MMI-Cockpit-Carplay` directory on the card intact.
+4. Run `Update Toolbox` as described in section 3, then follow section 4: `INSTALL` → full reboot → `START` → full reboot.
+
 See [SD_CARD_README.txt](SD_CARD_README.txt) for the notes shipped on the SD card. Changing head-unit system files can cause a blank screen or require recovery.
 
 ---
 
 ## Licensing, authors, and third-party files
 
-This project is developed by [yuedizhibo](https://github.com/yuedizhibo) and [Lanye-z](https://github.com/Lanye-z). The repository-root [PolyForm Noncommercial 1.0.0 license](LICENSE) applies only to original material that the relevant rights holders are entitled to publish under those terms: non-commercial use, modification, and redistribution are permitted, while commercial use requires separate permission from the relevant rights holders. This repository provides runtime binaries, installation scripts, and documentation; it does not publish the C/C++ source used to build the QNX binary. Because commercial use is restricted, the license is not open source under the OSI definition.
+This project is developed by [yuedizhibo](https://github.com/yuedizhibo) and [Lanye-z](https://github.com/Lanye-z). The repository-root [PolyForm Noncommercial 1.0.0 license](LICENSE) applies only to original material that the relevant rights holders are entitled to publish under those terms: non-commercial use, modification, and redistribution are permitted; **commercial use or sale in any form is not permitted**, and any commercial license requires separate written permission from the relevant rights holders. Because commercial use is restricted, the license is not open source under the OSI definition.
 
-Third-party files retain their existing licenses. Preserve the upstream MIB2 Toolbox [MIT license](LICENSE.TOOLBOX-MIT) and the mirror runtime's [separate license](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR), and follow each set of terms when using or redistributing them.
+The current version provides runtime binaries, installation scripts, and documentation; it does not yet include the C/C++ source used to build the QNX binaries. **We plan to publish part of the source code in the next version.** That source will be covered by the same non-commercial license and may not be used commercially or sold.
+
+Third-party files retain their existing licenses. The full RGI feature is built on [Luka's mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi); the related parts must also follow that project's original license. Preserve the upstream MIB2 Toolbox [MIT license](LICENSE.TOOLBOX-MIT) and the mirror runtime's [separate license](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR), and follow each set of terms when using or redistributing them.
 
 Research and implementation references:
 
 - [LIVI](https://github.com/f-io/LIVI): research reference for CarPlay main-display and instrument-cluster secondary-display protocol behavior.
-- [mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi): reference for MHI2Q CarPlay navigation guidance, HMI, and instrument-cluster interaction.
+- [mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi) (Luka): foundation of the full RGI navigation-data integration, and reference for MHI2Q CarPlay navigation guidance, HMI, and instrument-cluster interaction.
 - [MIB2 High Toolbox](https://github.com/jilleb/mib2-toolbox): upstream project for the SD-card toolchain, engineering menu, and scripts.
 
 ---
@@ -202,6 +214,6 @@ The current public release prioritizes stable installation, normal use, and reli
 
 ## Public-release notice
 
-The repository currently publishes the installable runtime package and related documentation. It does not mean that every feature from the complete development version has been released at once.
+The repository currently publishes the installable runtime package and related documentation. It does not mean that every feature from the complete development version has been released at once. The next version is planned to publish part of the source code, which likewise may not be used commercially or sold.
 
 > **Shared free of charge. Reselling is prohibited.**
