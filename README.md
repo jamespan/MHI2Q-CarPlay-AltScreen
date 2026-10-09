@@ -11,6 +11,12 @@
 > 如果你希望显示的是 **MMI 中控完整画面镜像**，而不是 CarPlay 原生第二屏，请前往：  
 > **[MHI2Q-CarPlay-MMI-Mirror](https://github.com/Lanye-z/MHI2Q-CarPlay-MMI-Mirror)**
 
+> [!TIP]
+> **交流群**  
+> 欢迎加入交流群，讨论安装使用、反馈问题、分享实车测试结果：  
+> - QQ 群：**823297190**  
+> - Telegram：[https://t.me/+xZ2pabi2nmk1MDI9](https://t.me/+xZ2pabi2nmk1MDI9)
+
 > [!WARNING]
 > **⚠️ 写在前面**
 >
@@ -318,7 +324,7 @@ Script not found:
 
 **V3.7 全部开源，欢迎各位一起维护、修复问题和增添新功能。**
 
-- 通过 Issue 反馈问题，请附上完整日志、固件版本与地区、布局和连接方式。
+- 通过 Issue 反馈问题，请附上完整日志、固件版本与地区、布局和连接方式；日常交流可加入 QQ 群 **823297190** 或 [Telegram 群](https://t.me/+xZ2pabi2nmk1MDI9)。
 - 通过 Pull Request 提交修复和新功能，构建方法见上方「源码结构与构建」；也欢迎补充 US / ER 等其他地区固件的实车测试结果，帮助扩大已验证范围。
 - 提交 PR 时请说明测试车型、固件版本、测试步骤和结果。
 - 每次只改动一层：不要在一次修改中同时引入新的解码器、新的 Context 或大范围显示结构调整，否则出现异常后很难定位是哪一层造成的。
