@@ -185,7 +185,7 @@ See [SD_CARD_README.txt](SD_CARD_README.txt) for the notes shipped on the SD car
 
 This project is developed by [yuedizhibo](https://github.com/yuedizhibo) and [Lanye-z](https://github.com/Lanye-z). The repository-root [PolyForm Noncommercial 1.0.0 license](LICENSE) applies only to original material that the relevant rights holders are entitled to publish under those terms: non-commercial use, modification, and redistribution are permitted; **commercial use or sale in any form is not permitted**, and any commercial license requires separate written permission from the relevant rights holders. Because commercial use is restricted, the license is not open source under the OSI definition.
 
-The current version provides runtime binaries, installation scripts, and documentation; it does not yet include the C/C++ source used to build the QNX binaries. **We plan to publish part of the source code in the next version.** That source will be covered by the same non-commercial license and may not be used commercially or sold.
+The current version provides runtime binaries, installation scripts, and documentation; it does not yet include the C/C++ source used to build the QNX binaries. **We plan to publish the complete source code in the next version.** That source will be covered by the same non-commercial license and may not be used commercially or sold.
 
 Third-party files retain their existing licenses. The full RGI feature is built on [Luka's mib2q-carplay-rgi](https://github.com/luka-dev/mib2q-carplay-rgi); the related parts must also follow that project's original license. Preserve the upstream MIB2 Toolbox [MIT license](LICENSE.TOOLBOX-MIT) and the mirror runtime's [separate license](Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR), and follow each set of terms when using or redistributing them.
 
@@ -214,6 +214,6 @@ The current public release prioritizes stable installation, normal use, and reli
 
 ## Public-release notice
 
-The repository currently publishes the installable runtime package and related documentation. It does not mean that every feature from the complete development version has been released at once. The next version is planned to publish part of the source code, which likewise may not be used commercially or sold.
+The repository currently publishes the installable runtime package and related documentation. It does not mean that every feature from the complete development version has been released at once. The next version is planned to publish the complete source code, which likewise may not be used commercially or sold.
 
 > **Shared free of charge. Reselling is prohibited.**
