@@ -11,6 +11,12 @@ This project is designed for the Audi **MHI2Q** platform and displays the **nati
 > If you want to mirror the **entire MMI center display** instead of using the native CarPlay secondary display, see:  
 > **[MHI2Q-CarPlay-MMI-Mirror](https://github.com/Lanye-z/MHI2Q-CarPlay-MMI-Mirror)**
 
+> [!TIP]
+> **Community**  
+> Join the community to discuss installation and use, report problems, and share vehicle test results:  
+> - Telegram: [https://t.me/+xZ2pabi2nmk1MDI9](https://t.me/+xZ2pabi2nmk1MDI9)  
+> - QQ group: **823297190**
+
 > [!WARNING]
 > **⚠️ A note before you start**
 >
@@ -318,7 +324,7 @@ Changing head-unit system files can cause a blank screen or require recovery.
 
 **V3.7 is fully open source, and everyone is welcome to help maintain the project, fix issues, and add new features.**
 
-- Report problems through Issues, with complete logs, the firmware version and region, the layout, and how the phone was connected.
+- Report problems through Issues, with complete logs, the firmware version and region, the layout, and how the phone was connected. For general discussion, join the [Telegram group](https://t.me/+xZ2pabi2nmk1MDI9) or QQ group **823297190**.
 - Submit fixes and new features through Pull Requests; see "Source layout and building" above for how to build. Vehicle test results on US / ER and other regional firmware are also welcome and help widen the validated scope.
 - In a pull request, describe the test vehicle, firmware version, test steps, and results.
 - Change one layer at a time: do not introduce a new decoder, a new Context, and broad display-structure changes in the same change, or it becomes hard to tell which layer caused a problem.
