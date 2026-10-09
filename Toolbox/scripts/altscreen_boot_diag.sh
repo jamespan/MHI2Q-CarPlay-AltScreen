@@ -207,6 +207,8 @@ run_flat_plaintext() {
     flat_wheel_log_offset=$(flat_read_cursor "${CURSOR_PREFIX}_wheel-log.offset")
     flat_carplay_hook_offset=$(flat_read_cursor "${CURSOR_PREFIX}_carplay-hook.offset")
     flat_rgi_offset=$(flat_read_cursor "${CURSOR_PREFIX}_rgi.offset")
+    flat_rgi_native_offset=$(flat_read_cursor "${CURSOR_PREFIX}_rgi-native.offset")
+    flat_supervisor_offset=$(flat_read_cursor "${CURSOR_PREFIX}_supervisor.offset")
     flat_oem_geometry_offset=$(flat_read_cursor "${CURSOR_PREFIX}_oem-geometry.offset")
     flat_oem_api_offset=$(flat_read_cursor "${CURSOR_PREFIX}_oem-api.offset")
     flat_wheel_events_sig=absent
@@ -222,6 +224,8 @@ run_flat_plaintext() {
         flat_wheel_log_offset=$(flat_capture_delta "$(select_wheel_log_source)" "$flat_wheel_log_offset" "$FLAT_DEST/streams/mmi-mirror-wheel-zoom.log" "${FLAT_PREFIX}_wheel_log.chunk" "${CURSOR_PREFIX}_wheel-log.offset")
         flat_carplay_hook_offset=$(flat_capture_delta "$(select_carplay_hook_log_source)" "$flat_carplay_hook_offset" "$FLAT_DEST/streams/carplay_hook.log" "${FLAT_PREFIX}_carplay_hook.chunk" "${CURSOR_PREFIX}_carplay-hook.offset")
         flat_rgi_offset=$(flat_capture_delta "$ROOT/tmp/maneuver_render.log" "$flat_rgi_offset" "$FLAT_DEST/streams/maneuver_render.log" "${FLAT_PREFIX}_rgi.chunk" "${CURSOR_PREFIX}_rgi.offset")
+        flat_rgi_native_offset=$(flat_capture_delta "$ROOT/tmp/carplay_rgi_native.log" "$flat_rgi_native_offset" "$FLAT_DEST/streams/carplay_rgi_native.log" "${FLAT_PREFIX}_rgi_native.chunk" "${CURSOR_PREFIX}_rgi-native.offset")
+        flat_supervisor_offset=$(flat_capture_delta "$ROOT/tmp/altscreen_stream_supervisor.log" "$flat_supervisor_offset" "$FLAT_DEST/streams/altscreen_stream_supervisor.log" "${FLAT_PREFIX}_supervisor.chunk" "${CURSOR_PREFIX}_supervisor.offset")
         flat_oem_geometry_offset=$(flat_capture_delta "$(select_oem_geometry_history_source)" "$flat_oem_geometry_offset" "$FLAT_DEST/streams/carplay-oem-geometry.log" "${FLAT_PREFIX}_oem_geometry.chunk" "${CURSOR_PREFIX}_oem-geometry.offset")
         flat_oem_api_offset=$(flat_capture_delta "$(select_oem_displaymanager_api_source)" "$flat_oem_api_offset" "$FLAT_DEST/streams/carplay-oem-displaymanager-read-api.log" "${FLAT_PREFIX}_oem_api.chunk" "${CURSOR_PREFIX}_oem-api.offset")
         wheel_events_source=$(select_wheel_events_source)
@@ -270,7 +274,20 @@ run_flat_plaintext() {
                 date
                 ls -la "$ROOT/mnt/app/root/carplay-altscreen/lib"
                 ls -la "$ROOT/mnt/app/root/carplay-altscreen/bin/mirror"
+                ls -la "$ROOT/mnt/app/root/carplay-altscreen/bin/rgi"
                 ls -la "$ROOT/mnt/app/root/carplay-altscreen/state"
+                for rgi_marker in altscreen_rgi_supervisor.pid altscreen_rgi_renderer.pid mmi-rgi.disabled altscreen_mirror.stop.requested; do
+                    if [ -f "$ROOT/tmp/$rgi_marker" ]; then
+                        printf 'RGI_STATE %s=' "$rgi_marker"
+                        cat "$ROOT/tmp/$rgi_marker"
+                        printf '\n'
+                    else
+                        printf 'RGI_STATE %s=ABSENT\n' "$rgi_marker"
+                    fi
+                done
+                for rgi_verbose in "$ROOT/tmp/carplay_verbose" "$ROOT/mnt/app/carplay_verbose" "$ROOT/mnt/app/root/carplay-altscreen/state/rgi-debug.enabled"; do
+                    if [ -f "$rgi_verbose" ]; then printf 'RGI_LOG_MARKER %s=PRESENT\n' "$rgi_verbose"; else printf 'RGI_LOG_MARKER %s=ABSENT\n' "$rgi_verbose"; fi
+                done
                 ls -la "$VOLUME/MMI-Cockpit-Carplay/state"
             } > "$flat_state" 2>&1
             flat_plain_append "$flat_state" "$FLAT_DEST/file_state.txt.log" 2>/dev/null || true

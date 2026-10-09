@@ -1,5 +1,5 @@
 #!/bin/sh
-# Always-on Allemon arrow renderer; Java owns data and display contexts.
+# Allemon renderer supervision; election is a kernel-owned loopback lease.
 set -eu
 PATH=${PATH:+$PATH:}/proc/boot:/armle/bin:/bin:/usr/bin:/mnt/app/armle/bin:/eso/bin
 export PATH
@@ -8,26 +8,30 @@ TMP_ROOT=${ALT111_MIRROR_TMP_ROOT:-/tmp}
 BIN=${RGI_RENDERER_BIN:-$HERE/../rgi/maneuver_render}
 PIDFILE=$TMP_ROOT/altscreen_rgi_supervisor.pid
 CHILDFILE=$TMP_ROOT/altscreen_rgi_renderer.pid
-LOCK=$TMP_ROOT/altscreen_rgi_supervisor.lock
 LOG=$TMP_ROOT/maneuver_render.log
 DISABLED=$TMP_ROOT/mmi-rgi.disabled
 STOP=$TMP_ROOT/altscreen_mirror.stop.requested
 MAX_RESTARTS=${RGI_MAX_RESTARTS:-3}
-case "$MAX_RESTARTS" in ''|*[!0-9]*) exit 2 ;; esac
-[ -x "$BIN" ] || { echo "RGI_SUPERVISOR=FAIL reason=missing_renderer"; exit 2; }
-stale=0
-if [ -f "$PIDFILE" ]; then
-  old=$(cat "$PIDFILE" 2>/dev/null || true)
-  case "$old" in ''|*[!0-9]*) ;; *)
-    if kill -0 "$old" 2>/dev/null; then echo "RGI_SUPERVISOR=ALREADY_RUNNING"; exit 0; fi
-    stale=1 ;;
-  esac
+if [ -d /proc/boot ] && [ -d /mnt/app ]; then
+  LD_LIBRARY_PATH=${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}/proc/boot:/usr/lib:/armle/lib:/armle/lib/dll:/lib:/mnt/app/usr/lib:/eso/lib
+  export LD_LIBRARY_PATH
 fi
-# A live owner holds the lock through its child's wait/reap. An interrupted
-# launcher can leave it stale; only reclaim after the owner is proven absent.
-if [ "$stale" = 1 ]; then rmdir "$LOCK" 2>/dev/null || true; fi
-mkdir "$LOCK" 2>/dev/null || exit 0
-echo "$$" > "$PIDFILE"
+log() { printf '%s\n' "$*" >> "$LOG"; }
+if ! : >> "$LOG"; then
+  echo "RGI_SUPERVISOR=FAIL stage=log_open path=$LOG" >&2
+  exit 2
+fi
+case "$MAX_RESTARTS" in ''|*[!0-9]*) log "RGI_SUPERVISOR=FAIL reason=invalid_restart_limit"; exit 2 ;; esac
+[ -x "$BIN" ] || { log "RGI_SUPERVISOR=FAIL reason=missing_renderer path=$BIN"; exit 2; }
+if [ "${1:-}" != --lease-held ]; then
+  log "RGI_SUPERVISOR=ATTEMPT renderer=$BIN lease=kernel_socket no_tmp_directory=1"
+  # The native election execs this shell with the SAME PID and retained fd 9.
+  # Both shell and renderer keep the lease; crashes cannot leave a stale lock.
+  LD_PRELOAD= exec "$BIN" --supervisor "$0" >> "$LOG" 2>&1
+fi
+exec 9>&9 || { log "RGI_SUPERVISOR=FAIL reason=lease_fd_missing"; exit 2; }
+OWNER=${RGI_SUPERVISOR_OWNER:-}
+case "$OWNER" in ''|*[!0-9]*) log "RGI_SUPERVISOR=FAIL reason=lease_owner_missing"; exit 2 ;; esac
 child=""
 cleanup() {
   trap - 0 1 2 15
@@ -35,26 +39,24 @@ cleanup() {
     kill -TERM "$child" 2>/dev/null || true
     n=0
     while kill -0 "$child" 2>/dev/null && [ "$n" -lt 2 ]; do sleep 1; n=$((n+1)); done
-    kill -KILL "$child" 2>/dev/null || true
+    if kill -0 "$child" 2>/dev/null; then kill -KILL "$child" 2>/dev/null || true; fi
     wait "$child" 2>/dev/null || true
   fi
-  rm -f "$PIDFILE" "$CHILDFILE"
-  rmdir "$LOCK" 2>/dev/null || true
-  echo "RGI_SUPERVISOR=STOPPED owner=$$" >> "$LOG"
+  if [ "$(cat "$PIDFILE" 2>/dev/null || true)" = "$OWNER" ]; then
+    rm -f "$PIDFILE" "$CHILDFILE"
+  fi
+  log "RGI_SUPERVISOR=STOPPED owner=$OWNER"
 }
 trap cleanup 0
 trap 'exit 0' 1 2 15
+printf '%s\n' "$OWNER" > "$PIDFILE" || { log "RGI_SUPERVISOR=FAIL stage=pid_publish"; exit 2; }
 failures=0
-echo "RGI_SUPERVISOR=STARTED owner=$$ restart_limit=$MAX_RESTARTS" >> "$LOG"
+log "RGI_SUPERVISOR=STARTED owner=$OWNER restart_limit=$MAX_RESTARTS"
 while [ ! -f "$DISABLED" ] && [ ! -f "$STOP" ]; do
-  if [ -d /proc/boot ] && [ -d /mnt/app ]; then
-    LD_LIBRARY_PATH=${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}/proc/boot:/usr/lib:/armle/lib:/armle/lib/dll:/lib:/mnt/app/usr/lib:/eso/lib
-    export LD_LIBRARY_PATH
-  fi
   started=$(date +%s)
   (cd "${BIN%/*}" && LD_PRELOAD= exec "$BIN") >> "$LOG" 2>&1 &
   child=$!
-  echo "$child" > "$CHILDFILE"
+  printf '%s\n' "$child" > "$CHILDFILE" || { log "RGI_SUPERVISOR=FAIL stage=child_pid_publish"; exit 2; }
   rc=0
   wait "$child" || rc=$?
   child=""
@@ -63,9 +65,9 @@ while [ ! -f "$DISABLED" ] && [ ! -f "$STOP" ]; do
   elapsed=$(($(date +%s)-started))
   [ "$elapsed" -lt 60 ] || failures=0
   failures=$((failures+1))
-  echo "RGI_RENDERER_EXIT rc=$rc uptime=$elapsed consecutive=$failures" >> "$LOG"
+  log "RGI_RENDERER_EXIT rc=$rc uptime=$elapsed consecutive=$failures"
   if [ "$failures" -gt "$MAX_RESTARTS" ]; then
-    echo "RGI_SUPERVISOR=RESTART_LIMIT action=WAIT_FOR_NEXT_START" >> "$LOG"
+    log "RGI_SUPERVISOR=RESTART_LIMIT action=WAIT_FOR_NEXT_START"
     break
   fi
   sleep $((failures*2))
