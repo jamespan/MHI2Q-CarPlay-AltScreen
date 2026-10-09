@@ -30,7 +30,9 @@ stop_pidfile() {
 # any existing explicit guard so concurrent STOP/RESTORE still wins.
 if [ "${ALT111_SUPERVISOR_CHILD:-0}" != "1" ]; then
   : > "$STOP_GUARD" 2>/dev/null || true
-  stop_pidfile "$SUPERVISOR_PIDFILE" 3
+  stop_pidfile "$SUPERVISOR_PIDFILE" 5
+  stop_pidfile "$TMP_ROOT/altscreen_rgi_supervisor.pid" 3
+  stop_pidfile "$TMP_ROOT/altscreen_rgi_renderer.pid" 2
 fi
 stop_pidfile "$WATCH_PIDFILE" 3
 stop_pidfile "$PIDFILE" 30

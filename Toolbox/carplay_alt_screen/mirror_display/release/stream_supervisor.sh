@@ -30,6 +30,11 @@ STOP="$ROOT/stop_vehicle.sh"
 if [ -f "$PIDFILE" ]; then
   OLD=$(cat "$PIDFILE" 2>/dev/null || true)
   if [ -n "$OLD" ] && kill -0 "$OLD" 2>/dev/null; then
+    # Explicit repeated START may rearm a renderer which reached its bounded
+    # restart ceiling. Its own atomic lock prevents duplicate instances.
+    if [ -x "$ROOT/rgi_supervisor.sh" ]; then
+      /bin/sh "$ROOT/rgi_supervisor.sh" >> "$LOGFILE" 2>&1 &
+    fi
     echo "STREAM_SUPERVISOR=ALREADY_RUNNING pid=$OLD"
     exit 0
   fi
@@ -73,10 +78,23 @@ stop_display() {
 
 cleanup() {
   trap - 0 1 2 15
+  if [ -n "$RGI_PID" ]; then
+    # A completed child may have been reaped automatically. Never signal its
+    # historical PID if the renderer supervisor no longer owns that marker.
+    if [ "$(cat "$TMP_ROOT/altscreen_rgi_supervisor.pid" 2>/dev/null || true)" = "$RGI_PID" ]; then
+      kill -TERM "$RGI_PID" 2>/dev/null || true
+    fi
+    wait "$RGI_PID" 2>/dev/null || true
+  fi
   stop_display
   rm -f "$PIDFILE" 2>/dev/null || true
   echo "STREAM_SUPERVISOR=STOPPED pid=$$" >> "$LOGFILE" 2>/dev/null || true
 }
+RGI_PID=""
+if [ -x "$ROOT/rgi_supervisor.sh" ]; then
+  /bin/sh "$ROOT/rgi_supervisor.sh" >> "$LOGFILE" 2>&1 &
+  RGI_PID=$!
+fi
 trap cleanup 0
 trap 'exit 0' 1 2 15
 

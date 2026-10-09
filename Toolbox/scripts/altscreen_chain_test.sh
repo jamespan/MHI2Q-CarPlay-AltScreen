@@ -71,6 +71,7 @@ ARTIFACT_DIR="$VOLUME/Toolbox/carplay_alt_screen"
 SD_SCRIPTS="$VOLUME/Toolbox/scripts"
 MIRROR_SD="$ARTIFACT_DIR/mirror_display/release"
 MIRROR_OWNER=".mmi-cockpit-carplay-mirror-owner"
+RGI_SD="$ARTIFACT_DIR/rgi_renderer/release"
 PERSIST_DIAG_SD="$SD_SCRIPTS/altscreen_persistent_diag.sh"
 LIVE_DIO_CANDIDATES="/eso/bin/apps/dio_manager /mnt/app/eso/bin/apps/dio_manager"
 LIVE_LIBAIRPLAY="/eso/lib/libairplay.so"
@@ -168,7 +169,7 @@ validate_runtime_sources(){
         [ -s "$src" ] || { echo "FAIL: runtime companion missing/empty: $src" >&2; return 1; }
         case "$name" in *.sh) sh -n "$src" || { echo "FAIL: runtime companion shell syntax: $name" >&2; return 1; } ;; esac
     done
-    for name in carplay-alt111-mirror-display start_vehicle.sh stop_vehicle.sh stream_supervisor.sh BUILD_INFO.txt; do
+    for name in carplay-alt111-mirror-display start_vehicle.sh stop_vehicle.sh stream_supervisor.sh rgi_supervisor.sh BUILD_INFO.txt; do
         [ -s "$MIRROR_SD/$name" ] || { echo "FAIL: integrated direct-display sidecar missing/empty: $MIRROR_SD/$name" >&2; return 1; }
     done
     grep -Fq 'release_binary_status=PRIVATE111_DIRECT_DISPLAY_V3_5' "$MIRROR_SD/BUILD_INFO.txt" 2>/dev/null &&
@@ -176,9 +177,13 @@ validate_runtime_sources(){
         echo "FAIL: direct-display release is not vehicle-ready V3.5; rebuild/promote runtime first" >&2
         return 1
     }
+    for name in maneuver_render flag_atlas.rgba BUILD_INFO.txt SHA256SUMS; do
+        [ -s "$RGI_SD/$name" ] || { echo "FAIL: RGI runtime missing: $name" >&2; return 1; }
+    done
     sh -n "$MIRROR_SD/start_vehicle.sh" || return 1
     sh -n "$MIRROR_SD/stop_vehicle.sh" || return 1
     sh -n "$MIRROR_SD/stream_supervisor.sh" || return 1
+    sh -n "$MIRROR_SD/rgi_supervisor.sh" || return 1
     return 0
 }
 
@@ -239,7 +244,7 @@ install_runtime_scripts(){
         }
     done
     ensure_dirs "$RUNTIME_STAGE/bin/mirror" || { rm -rf "$RUNTIME_STAGE" 2>/dev/null || true; mount_app_ro >/dev/null 2>&1 || true; return 1; }
-    for name in carplay-alt111-mirror-display start_vehicle.sh stop_vehicle.sh stream_supervisor.sh BUILD_INFO.txt LICENSE.MMI-MIRROR SHA256SUMS; do
+    for name in carplay-alt111-mirror-display start_vehicle.sh stop_vehicle.sh stream_supervisor.sh rgi_supervisor.sh BUILD_INFO.txt LICENSE.MMI-MIRROR SHA256SUMS; do
         [ -f "$MIRROR_SD/$name" ] || continue
         cp "$MIRROR_SD/$name" "$RUNTIME_STAGE/bin/mirror/$name" || {
             rm -rf "$RUNTIME_STAGE" 2>/dev/null || true
@@ -247,7 +252,24 @@ install_runtime_scripts(){
             return 1
         }
     done
-    chmod 755 "$RUNTIME_STAGE/bin/mirror/carplay-alt111-mirror-display"               "$RUNTIME_STAGE/bin/mirror/start_vehicle.sh"               "$RUNTIME_STAGE/bin/mirror/stop_vehicle.sh"               "$RUNTIME_STAGE/bin/mirror/stream_supervisor.sh" || {
+    chmod 755 "$RUNTIME_STAGE/bin/mirror/carplay-alt111-mirror-display"               "$RUNTIME_STAGE/bin/mirror/start_vehicle.sh"               "$RUNTIME_STAGE/bin/mirror/stop_vehicle.sh"               "$RUNTIME_STAGE/bin/mirror/stream_supervisor.sh" "$RUNTIME_STAGE/bin/mirror/rgi_supervisor.sh" || {
+        rm -rf "$RUNTIME_STAGE" 2>/dev/null || true
+        mount_app_ro >/dev/null 2>&1 || true
+        return 1
+    }
+    ensure_dirs "$RUNTIME_STAGE/bin/rgi" || {
+        rm -rf "$RUNTIME_STAGE" 2>/dev/null || true
+        mount_app_ro >/dev/null 2>&1 || true
+        return 1
+    }
+    for name in maneuver_render flag_atlas.rgba BUILD_INFO.txt SHA256SUMS; do
+        cp "$RGI_SD/$name" "$RUNTIME_STAGE/bin/rgi/$name" && cmp -s "$RGI_SD/$name" "$RUNTIME_STAGE/bin/rgi/$name" || {
+            rm -rf "$RUNTIME_STAGE" 2>/dev/null || true
+            mount_app_ro >/dev/null 2>&1 || true
+            return 1
+        }
+    done
+    chmod 755 "$RUNTIME_STAGE/bin/rgi/maneuver_render" || {
         rm -rf "$RUNTIME_STAGE" 2>/dev/null || true
         mount_app_ro >/dev/null 2>&1 || true
         return 1

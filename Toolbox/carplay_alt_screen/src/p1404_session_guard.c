@@ -1,0 +1,98 @@
+/* Included by the fullchain wrapper; also compiled directly by host tests. */
+#include "p1404_session_guard.h"
+#include <string.h>
+#include <pthread.h>
+#include <unistd.h>
+
+#define ALT_SESSION_GUARD_SLOTS 32u
+
+static struct {
+    void *receiver;
+    unsigned long owner;
+    unsigned users;
+    unsigned depth;
+    unsigned teardown_depth;
+    int full_completed;
+} session_guards[ALT_SESSION_GUARD_SLOTS];
+static volatile unsigned session_guards_lock;
+
+static void session_guards_acquire(void) {
+    /* Metadata only. Never hold this lock across stock calls, joins or logging.
+     * Yield even here: a higher-priority QNX waiter must not starve its owner. */
+    while (__sync_lock_test_and_set(&session_guards_lock, 1u)) usleep(1000u);
+}
+
+static void session_guards_release(void) {
+    __sync_lock_release(&session_guards_lock);
+}
+
+int alt_session_guard_enter(void *receiver, enum alt_session_operation operation,
+                            struct alt_session_lease *lease) {
+    unsigned i, slot = ALT_SESSION_GUARD_SLOTS;
+    unsigned long self = (unsigned long)pthread_self();
+    memset(lease, 0, sizeof(*lease));
+    lease->operation = operation;
+    if (!receiver) return ALT_SESSION_ENTERED; /* preserve stock NULL handling */
+
+    session_guards_acquire();
+    for (i = 0; i < ALT_SESSION_GUARD_SLOTS; ++i) {
+        if (session_guards[i].receiver == receiver) { slot = i; break; }
+        if (!session_guards[i].receiver && slot == ALT_SESSION_GUARD_SLOTS) slot = i;
+    }
+    if (slot == ALT_SESSION_GUARD_SLOTS) {
+        session_guards_release();
+        return ALT_SESSION_REFUSED; /* never fall through to concurrent stock */
+    }
+    session_guards[slot].receiver = receiver;
+    ++session_guards[slot].users; /* includes waiters, so their slot cannot vanish */
+    lease->slot = slot;
+    lease->registered = 1;
+
+    for (;;) {
+        if (session_guards[slot].full_completed) {
+            lease->completed = 1;
+            session_guards_release();
+            return ALT_SESSION_CLOSED;
+        }
+        if (!session_guards[slot].owner || session_guards[slot].owner == self) {
+            /* Stock SETUP error recovery legitimately calls outer TearDown on
+             * its own thread. Allow that nesting, but never destroy resources
+             * recursively while an outer stop is still using them. */
+            if (session_guards[slot].teardown_depth) {
+                session_guards_release();
+                return operation == ALT_SESSION_TEARDOWN ?
+                    ALT_SESSION_REENTRANT_STOP : ALT_SESSION_CLOSED;
+            }
+            session_guards[slot].owner = self;
+            ++session_guards[slot].depth;
+            if (operation == ALT_SESSION_TEARDOWN)
+                ++session_guards[slot].teardown_depth;
+            lease->entered = 1;
+            session_guards_release();
+            return ALT_SESSION_ENTERED;
+        }
+        session_guards_release();
+        ++lease->waited;
+        usleep(1000u); /* a wait timeout must never permit overlapping teardown */
+        session_guards_acquire();
+    }
+}
+
+void alt_session_guard_leave(struct alt_session_lease *lease, int full_completed) {
+    unsigned slot;
+    if (!lease->registered) return;
+    slot = lease->slot;
+    session_guards_acquire();
+    if (lease->entered) {
+        if (full_completed) session_guards[slot].full_completed = 1;
+        if (lease->operation == ALT_SESSION_TEARDOWN)
+            --session_guards[slot].teardown_depth;
+        if (!--session_guards[slot].depth) session_guards[slot].owner = 0;
+    }
+    /* No permanent pointer tombstone: once all overlapping calls have left,
+     * a new receiver may legally be allocated at exactly the same address. */
+    if (!--session_guards[slot].users)
+        memset(&session_guards[slot], 0, sizeof(session_guards[slot]));
+    session_guards_release();
+    lease->registered = 0;
+}

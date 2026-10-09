@@ -408,6 +408,14 @@ verify_installed(){
     { log "INSTALL_VERIFY=FAIL reason=HMI_JAR_MISMATCH"; return 1; }
   same "$UNIVERSAL_SOURCE" "$UNIVERSAL_DST" ||
     { log "INSTALL_VERIFY=FAIL reason=UNIVERSAL_HOOK_MISMATCH"; return 1; }
+  same "$VOLUME/Toolbox/carplay_alt_screen/rgi_meta/libcarplay_rgi_meta.so" "$RUNTIME/lib/libcarplay_rgi_meta.so" ||
+    { log "INSTALL_VERIFY=FAIL reason=RGI_METADATA_MISMATCH"; return 1; }
+  for rgi_file in maneuver_render flag_atlas.rgba BUILD_INFO.txt SHA256SUMS; do
+    same "$VOLUME/Toolbox/carplay_alt_screen/rgi_renderer/release/$rgi_file" "$RUNTIME/bin/rgi/$rgi_file" ||
+      { log "INSTALL_VERIFY=FAIL reason=RGI_RUNTIME_MISMATCH file=$rgi_file"; return 1; }
+  done
+  [ -x "$RUNTIME/bin/rgi/maneuver_render" ] ||
+    { log "INSTALL_VERIFY=FAIL reason=RGI_NOT_EXECUTABLE"; return 1; }
 
   [ -f "$RUNTIME/.mmi-cockpit-carplay-runtime-owner" ] ||
     { log "INSTALL_VERIFY=FAIL reason=RUNTIME_OWNER_MISSING"; return 1; }
@@ -415,6 +423,10 @@ verify_installed(){
     { log "INSTALL_VERIFY=FAIL reason=MIRROR_BINARY_MISSING"; return 1; }
   [ -x "$RUNTIME/bin/mirror/start_vehicle.sh" ] ||
     { log "INSTALL_VERIFY=FAIL reason=MIRROR_START_MISSING"; return 1; }
+  same "$VOLUME/Toolbox/carplay_alt_screen/mirror_display/release/rgi_supervisor.sh" "$RUNTIME/bin/mirror/rgi_supervisor.sh" ||
+    { log "INSTALL_VERIFY=FAIL reason=RGI_SUPERVISOR_MISMATCH"; return 1; }
+  [ -x "$RUNTIME/bin/mirror/rgi_supervisor.sh" ] ||
+    { log "INSTALL_VERIFY=FAIL reason=RGI_SUPERVISOR_NOT_EXECUTABLE"; return 1; }
   [ -f "$RUNTIME/state/diagnostics.enabled" ] ||
     { log "INSTALL_VERIFY=FAIL reason=PERSISTENT_DIAGNOSTICS_NOT_ENABLED"; return 1; }
 
