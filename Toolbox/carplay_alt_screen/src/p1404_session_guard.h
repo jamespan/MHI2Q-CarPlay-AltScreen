@@ -1,0 +1,33 @@
+/* Serialize receiver lifecycle operations without assuming a QNX mutex ABI. */
+#ifndef P1404_SESSION_GUARD_H
+#define P1404_SESSION_GUARD_H
+
+enum alt_session_operation {
+    ALT_SESSION_SETUP,
+    ALT_SESSION_START,
+    ALT_SESSION_CONTROL,
+    ALT_SESSION_TEARDOWN
+};
+
+enum alt_session_admission {
+    ALT_SESSION_REFUSED = -1,
+    ALT_SESSION_CLOSED = 0,
+    ALT_SESSION_ENTERED = 1,
+    ALT_SESSION_REENTRANT_STOP = 2
+};
+
+struct alt_session_lease {
+    unsigned slot;
+    unsigned waited;
+    int registered;
+    int entered;
+    int retained;
+    int completed;
+    enum alt_session_operation operation;
+};
+
+int alt_session_guard_enter(void *receiver, enum alt_session_operation operation,
+                            struct alt_session_lease *lease);
+void alt_session_guard_leave(struct alt_session_lease *lease, int full_completed);
+
+#endif

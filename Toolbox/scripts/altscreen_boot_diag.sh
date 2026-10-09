@@ -276,6 +276,17 @@ run_flat_plaintext() {
                 ls -la "$ROOT/mnt/app/root/carplay-altscreen/bin/mirror"
                 ls -la "$ROOT/mnt/app/root/carplay-altscreen/bin/rgi"
                 ls -la "$ROOT/mnt/app/root/carplay-altscreen/state"
+                printf 'DISPLAY_STATE_PATH_PERMISSIONS_BEGIN\n'
+                id 2>/dev/null || true
+                ls -ld "$ROOT/tmp" 2>&1 || true
+                for display_state_probe in "$ROOT/tmp/mmi-mirror-displayable3.state" "$ROOT/tmp/mmi-mirror-displayable3.state.tmp" "$ROOT/tmp"/mmi-mirror-displayable3.state.tmp.*; do
+                    if [ -e "$display_state_probe" ]; then
+                        ls -l "$display_state_probe" 2>&1 || true
+                    else
+                        printf 'DISPLAY_STATE_PATH path=%s status=ABSENT\n' "$display_state_probe"
+                    fi
+                done
+                printf 'DISPLAY_STATE_PATH_PERMISSIONS_END\n'
                 for rgi_marker in altscreen_rgi_supervisor.pid altscreen_rgi_renderer.pid mmi-rgi.disabled altscreen_mirror.stop.requested; do
                     if [ -f "$ROOT/tmp/$rgi_marker" ]; then
                         printf 'RGI_STATE %s=' "$rgi_marker"

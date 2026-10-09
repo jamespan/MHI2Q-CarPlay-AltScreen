@@ -1,0 +1,136 @@
+# Default deny: only the production source/build/runtime allowlist below is published.
+# Directory traversal is allowed; files remain ignored unless explicitly selected.
+*
+!*/
+
+# Repository metadata, existing user documentation and licenses.
+!/.gitignore
+!/.gitattributes
+!/README.md
+!/README_EN.md
+!/LICENSE
+!/LICENSE.TOOLBOX-MIT
+!/SD_CARD_README.txt
+!/SHA256SUMS-SD.txt
+
+# Current universal hook and its QNX compatibility headers.
+!/BUILD-UNIVERSAL-QNX.sh
+!/Toolbox/carplay_alt_screen/build_source_snapshot.sh
+!/Toolbox/carplay_alt_screen/src/**/*.c
+!/Toolbox/carplay_alt_screen/src/**/*.h
+!/Toolbox/carplay_alt_screen/src/**/*.s
+!/Toolbox/carplay_alt_screen/src/**/*.S
+!/Toolbox/carplay_alt_screen/src/libcarplay_altscreen.map
+!/Toolbox/carplay_alt_screen/src/build_qnx_arm.sh
+!/Toolbox/carplay_alt_screen/src/tools/validate_qnx_load_layout.py
+
+# HMI production Java, compile-only API stubs and required Unicode resource.
+# The vendor baseline JAR contains classes whose source is not in this project.
+!/Toolbox/carplay_alt_screen/hmi/src/**/*.java
+!/Toolbox/carplay_alt_screen/hmi/stubs/**/*.java
+!/Toolbox/carplay_alt_screen/hmi/resources/com/luka/carplay/routeguidance/vc-text.bin
+!/Toolbox/carplay_alt_screen/hmi/resources/META-INF/UNICODE-LICENSE.txt
+!/Toolbox/carplay_alt_screen/hmi/vendor/carplay_hook-wheel-v25.jar
+
+# Map display source, embedded logo asset and production build tools.
+# The .z asset is a build input; it is embedded in the ELF, not shipped separately on SD.
+!/BUILD-MIRROR-QNX.sh
+!/Tools/build_logo_sidecar.sh
+!/Tools/verify_embedded_logo.py
+!/Toolbox/carplay_alt_screen/mirror_display/src/**/*.cpp
+!/Toolbox/carplay_alt_screen/mirror_display/src/**/*.h
+!/Toolbox/carplay_alt_screen/mirror_display/src/**/*.S
+!/Toolbox/carplay_alt_screen/mirror_display/Makefile
+!/Toolbox/carplay_alt_screen/mirror_display/build_qnx.sh
+!/Toolbox/carplay_alt_screen/mirror_display/assets/logo_frames.z
+!/Toolbox/carplay_alt_screen/mirror_display/tools/build_startup_logo.py
+
+# RGI production hook, QNX renderer, scene code and shared support.
+!/Tools/build_rgi_qnx.sh
+!/Toolbox/carplay_alt_screen/rgi_native/src/**/*.c
+!/Toolbox/carplay_alt_screen/rgi_native/src/**/*.h
+!/Toolbox/carplay_alt_screen/rgi_native/src/carplay_hook.exports.map
+!/Toolbox/carplay_alt_screen/rgi_renderer/src/**/*.c
+!/Toolbox/carplay_alt_screen/rgi_renderer/src/**/*.h
+!/Toolbox/carplay_alt_screen/rgi_renderer/src/**/*.cpp
+!/Toolbox/carplay_alt_screen/rgi_renderer/src/**/*.hpp
+!/Toolbox/carplay_alt_screen/rgi_renderer/src/Makefile
+!/Toolbox/carplay_alt_screen/rgi_renderer/common/**/*.c
+!/Toolbox/carplay_alt_screen/rgi_renderer/common/**/*.h
+!/Toolbox/carplay_alt_screen/rgi_renderer/toolchain/qnx65-abi/include/**/*.h
+!/Toolbox/carplay_alt_screen/**/LICENSE*
+
+# Exact SD runtime closure. Some installer/diagnostic filenames contain "test";
+# those are vehicle runtime scripts and must not be removed by a blanket test rule.
+!/Toolbox/GEM/mqb-carplayAltScreen.esd
+!/Toolbox/carplay_alt_screen/hmi/BUILD_INFO.txt
+!/Toolbox/carplay_alt_screen/hmi/carplay_hook-basevideo3.jar
+!/Toolbox/carplay_alt_screen/mirror_display/release/BUILD_INFO.txt
+!/Toolbox/carplay_alt_screen/mirror_display/release/LICENSE.MMI-MIRROR
+!/Toolbox/carplay_alt_screen/mirror_display/release/SHA256SUMS
+!/Toolbox/carplay_alt_screen/mirror_display/release/carplay-alt111-mirror-display
+!/Toolbox/carplay_alt_screen/mirror_display/release/rgi_supervisor.sh
+!/Toolbox/carplay_alt_screen/mirror_display/release/start_vehicle.sh
+!/Toolbox/carplay_alt_screen/mirror_display/release/stop_vehicle.sh
+!/Toolbox/carplay_alt_screen/mirror_display/release/stream_supervisor.sh
+!/Toolbox/carplay_alt_screen/rgi_meta/libcarplay_rgi_meta.so
+!/Toolbox/carplay_alt_screen/rgi_renderer/release/BUILD_INFO.txt
+!/Toolbox/carplay_alt_screen/rgi_renderer/release/SHA256SUMS
+!/Toolbox/carplay_alt_screen/rgi_renderer/release/flag_atlas.rgba
+!/Toolbox/carplay_alt_screen/rgi_renderer/release/maneuver_render
+!/Toolbox/carplay_alt_screen/universal/libcarplay_altscreen.so
+!/Toolbox/scripts/altscreen_adaptive_diag.sh
+!/Toolbox/scripts/altscreen_boot_diag.sh
+!/Toolbox/scripts/altscreen_chain_test.sh
+!/Toolbox/scripts/altscreen_chain_test_known.sh
+!/Toolbox/scripts/altscreen_chain_test_universal.sh
+!/Toolbox/scripts/altscreen_install_transaction.sh
+!/Toolbox/scripts/altscreen_live_diag.sh
+!/Toolbox/scripts/altscreen_persistent_diag.sh
+!/Toolbox/scripts/altscreen_preload.awk
+!/Toolbox/scripts/altscreen_restore_apply.sh
+!/Toolbox/scripts/altscreen_restore_transaction.sh
+!/Toolbox/scripts/altscreen_sd_writable.sh
+!/Toolbox/scripts/altscreen_v33_rgi_config.sh
+!/Toolbox/scripts/finish_mmi_cockpit_carplay_test.sh
+!/Toolbox/scripts/force_start_mmi_cockpit_carplay_rx_test.sh
+!/Toolbox/scripts/install_mmi_cockpit_carplay_rx.sh
+!/Toolbox/scripts/start_mmi_cockpit_carplay_rx_test.sh
+!/Toolbox/scripts/start_mmi_cockpit_carplay_test.sh
+!/Toolbox/scripts/status_mmi_cockpit_carplay_test.sh
+!/Toolbox/scripts/stop_mmi_cockpit_carplay_test.sh
+
+# Never publish generated output, diagnostic captures, backups or local checkouts.
+/Github/
+/logs/
+/Tools/git/
+/Research/
+/Dump/
+/CustomModifications/
+**/dev-build/
+**/build/
+**/cache/
+**/backup/
+**/backups/
+**/__pycache__/
+**/.pytest_cache/
+**/.idea/
+**/.vscode/
+**/tests/
+**/test_harness.c
+**/test_*.c
+**/test_*.cpp
+**/test_*.java
+**/hostcheck/
+/Toolbox/carplay_alt_screen/profiles/
+/Toolbox/carplay_alt_screen/rgi_renderer/src/platform_macos.c
+/Toolbox/carplay_alt_screen/rgi_renderer/src/resources/
+*.o
+*.obj
+*.pyc
+*.log
+*.tmp
+*.zip
+*.rar
+*.7z
+*.mp4
